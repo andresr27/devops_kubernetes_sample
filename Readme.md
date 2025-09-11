@@ -7,11 +7,11 @@ This repository contains Terraform configurations for provisioning and managing 
 
 We follow a **layer-based separation** pattern:
 
-| Layer | Team Responsible | Key Components | Description |
-|-------|------------------|----------------|-------------|
-| [**Core Layer**]() | Platform Engineering | VPC, Security Groups, IAM, DNS | Foundational network and security infrastructure |
-| **Middleware Layer** | Platform Engineering | Kubernetes, Databases, Caching, Messaging | Shared services and platform components |
-| **Application Layer** | Application Teams | Containerized Apps, Load Balancers, CI/CD | Environment-specific application infrastructure |
+| Layer                                                                                  | Team Responsible | Key Components | Description |
+|----------------------------------------------------------------------------------------|------------------|----------------|-------------|
+| [**Core Layer**](https://github.com/andresr27/devops_kubernetes_sample/tree/main/core) | Platform Engineering | VPC, Security Groups, IAM, DNS | Foundational network and security infrastructure |
+| **Middleware Layer**                                                                   | Platform Engineering | Kubernetes, Databases, Caching, Messaging | Shared services and platform components |
+| **Application Layer**                                                                  | Application Teams | Containerized Apps, Load Balancers, CI/CD | Environment-specific application infrastructure |
 
 This separation allows different teams to work concurrently while maintaining clear boundaries and ownership.
 
@@ -25,6 +25,20 @@ This separation allows different teams to work concurrently while maintaining cl
 Our production environment leverages managed services for reliability:
 
 ```
+core/
+├── environments/         # Environment-specific configurations
+│   ├── prod/             # Production environment
+│   ├── stage/            # Staging environment
+│   └── dev/              # Development environment
+├── modules/              # Reusable Terraform modules
+│   ├── vpc/              # VPC and networking components
+│   ├── eks/              # Kubernetes cluster resources
+│   ├── rds/              # Database resources
+│   ├── security/         # Security groups and IAM
+│   └── monitoring/       # Monitoring and alerting
+├── scripts/              # Helper scripts and utilities
+├── docs/                 # Architecture and documentation
+└── examples/             # Example implementations
 middleware/
 └── prod/
     ├── kubernetes/
