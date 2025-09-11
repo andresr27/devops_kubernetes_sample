@@ -1,0 +1,193 @@
+---
+- hosts: localhost
+  connection: local
+  become: true
+  gather_facts: yes
+  vars_files:
+    - vars/install-bastion.yml
+
+  vars_prompt:
+    - name: aws_access_key_id
+      prompt: What is terraform-user AWS access_key_id? (PROD WD)
+    - name: aws_secret_access_key
+      prompt: What is terraform-user AWS secret_access_key? (PROD WD)
+
+  tasks:
+    - name: Update hostname
+      hostname:
+        name: "{{ bastion_name }}"
+
+    - name: Update and upgrade apt packages
+      apt:
+        upgrade: "yes"
+        update_cache: yes
+      tags:
+        - install-kubectl
+
+    - name: Install unzip
+      apt:
+        name: unzip
+        state: present
+      tags:
+        - install-awscli
+
+    - name: Check if awscli is installed
+      command: aws --version
+      register: result
+      ignore_errors: True
+
+    - name: Install AWS CLI
+      become_user: ubuntu
+      shell: curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && unzip awscliv2.zip && sudo ./aws/install
+      no_log: True
+      tags:
+        - install-awscli
+      when: result is failed
+
+    - name: Update AWS CLI
+      become_user: ubuntu
+      shell: "curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscliv2.zip && yes | unzip awscliv2.zip && yes | sudo ./aws/install --update"
+      no_log: True
+      tags:
+        - install-awscli
+      when: result is succeeded
+
+    - name: Append DP Public SSH Key to Authorized Keys
+      blockinfile:
+        path: /home/ubuntu/.ssh/authorized_keys
+        marker: "#DEVOPS_PUBLIC_SSH_KEY"
+        block: |
+          {{ data_platform_ssh_public_key }}
+      tags:
+        - add-dp-public-ssh-key
+
+    - name: Configure AWS Credentials (Root User)
+      shell: aws configure set {{ item.key }} {{ item.value }}
+      no_log: True
+      with_dict:
+        aws_access_key_id: "{{ aws_access_key_id }}"
+        aws_secret_access_key: "{{ aws_secret_access_key }}"
+      tags:
+        - configure-aws-credentials
+
+    - name: Configure AWS Credentials (Ubuntu User)
+      shell: aws configure set {{ item.key }} {{ item.value }}
+      become_user: ubuntu
+      no_log: True
+      with_dict:
+        aws_access_key_id: "{{ aws_access_key_id }}"
+        aws_secret_access_key: "{{ aws_secret_access_key }}"
+      tags:
+        - configure-aws-credentials
+
+    - name: Install apt-transport-https
+      apt:
+        name: apt-transport-https
+        state: present
+      tags:
+        - install-kubectl
+
+    - name: Install ca-certificates
+      apt:
+        name: ca-certificates
+        state: present
+      tags:
+        - install-kubectl
+
+    - name: Install curl
+      apt:
+        name: curl
+        state: present
+      tags:
+        - install-kubectl
+
+    - name: Create keyrings directory
+      command: sudo mkdir -p -m 755 /etc/apt/keyrings
+      tags:
+        - install-kubectl
+
+    - name: Download the Google Cloud public signing key
+      shell: "sudo curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.30/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg"
+      args:
+        warn: false
+      tags:
+        - install-kubectl
+
+    - name: Add Kubernetes apt repository
+      apt_repository:
+        repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.30/deb/ /"
+        filename: kubernetes
+      tags:
+        - install-kubectl
+
+    - name: Update and upgrade apt packages
+      apt:
+        upgrade: "yes"
+        update_cache: yes
+      tags:
+        - install-kubectl
+
+    - name: Install kubectl
+      apt:
+        name: kubectl={{ kubectl_version }}
+        force: True
+        state: present
+      tags:
+        - install-kubectl
+
+    - name: Update Kubeconfig File (Root User)
+      command: "aws eks update-kubeconfig --region '{{ cluster_region_code }}' --name '{{ cluster_name }}'"
+      tags:
+        - update-kubeconfig
+
+    - name: Update Kubeconfig File (Ubuntu User)
+      command: "aws eks update-kubeconfig --region '{{ cluster_region_code }}' --name '{{ cluster_name }}'"
+      become_user: ubuntu
+      tags:
+        - update-kubeconfig
+
+    - name: Install Helm
+      snap:
+        name: helm
+        classic: yes
+      tags:
+        - install-helm
+
+    - name: Install kubectx
+      snap:
+        name: kubectx
+        classic: yes
+      tags:
+        - install-kubectx
+
+    - name: Append k8s utilities to .bashrc file (root user)
+      blockinfile:
+        path: /root/.bashrc
+        block: |
+          export PATH="${PATH}:${HOME}/.krew/bin"
+          alias k=kubectl
+          alias kbx=kubectx
+          alias kbn=kubens
+      tags:
+        - install-kubectx
+        - install-krew
+
+    - name: Append k8s utilities to .bashrc file (ubuntu user)
+      become_user: ubuntu
+      blockinfile:
+        path: /home/ubuntu/.bashrc
+        block: |
+          export PATH="${PATH}:${HOME}/.krew/bin"
+          alias k=kubectl
+          alias kbx=kubectx
+          alias kbn=kubens
+      tags:
+        - install-kubectx
+        - install-krew
+
+    - name: Install jq
+      apt:
+        name: jq
+        state: present
+      tags:
+        - install-jq

@@ -1,0 +1,16 @@
+# all .tfvars files, which are likely to contain sensitive data, such as
+# password, private keys, and other secrets should not be part of version 
+# control as they are data points which are potentially sensitive and subject 
+# to change depending on the environment.
+
+# AWS Account Details
+aws_account   = "************"
+aws_region    = "us-west-2"
+env_prefix    = "prod-"
+
+#Tags#
+businessowner = "Devops Rules Team"
+businessunit = "Devops Rules Team"
+env          = "Prod"
+app          = "AWS"
+domain_name  = "sample-domain.io"

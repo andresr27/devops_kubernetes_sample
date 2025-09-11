@@ -1,0 +1,36 @@
+# Check endpoint definition
+# DNS check_type[http,https] port path
+# Must return 20x
+# Authorized health checks are not supported yet.
+# Database health checks are not supported yet.
+
+#Running checks:
+
+## CMA prod
+cmapp.sd-prd.bairesdev.net https 443 /login
+cma-api.sd-prd.bairesdev.net https 443 /ping
+
+##CMA dev
+cmapp.sd-dev.bairesdev.net https 443 /login
+cma-api.sd-dev.bairesdev.net https 443 /ping
+
+##Dataplatform
+superset.sample-domain.io https 443 /
+metabase.sample-domain.io https 443 /
+
+
+
+
+# Error testing
+
+## 404 Not found#
+#cma-backend-eks.sd-prd.bairesdev.net https 443 /
+
+## 401 Not authorized
+#opensearch.dev.sample-domain.io https 443 /
+
+## 502 DNS error
+#just.totesterrors.net https 443 /
+
+# Bad format.
+#superset.sample-domain.io

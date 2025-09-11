@@ -1,0 +1,49 @@
+---
+- hosts: localhost
+  connection: local
+  become: true
+  gather_facts: yes
+  vars_files:
+    - vars/install-bastion.yml
+
+  tasks:
+    - name: Update hostname
+      hostname:
+        name: "{{ bastion_name }}"
+
+    - name: Update and upgrade apt packages
+      apt:
+        upgrade: "yes"
+        update_cache: yes
+
+    - name: Setup Server GPG Key
+      command: sudo sh -c 'curl https://packages.fluentbit.io/fluentbit.key | gpg --dearmor > /usr/share/keyrings/fluentbit-keyring.gpg'
+      register: result
+      ignore_errors: True
+
+    - name: Export Ubuntu release name
+      become_user: ubuntu
+      shell: cat /etc/os-release | grep UBUNTU_CODENAME | awk -F '=' '{print $2}'
+      register: ubuntu_release
+
+    - name: Add Fluentbit apt repository
+      apt_repository:
+        repo: "deb [signed-by=/usr/share/keyrings/fluentbit-keyring.gpg] https://packages.fluentbit.io/ubuntu/{{ ubuntu_release.stdout }}/ {{ ubuntu_release.stdout }} main"
+        filename: fluentbit
+
+    - name: Update and upgrade apt packages
+      apt:
+        upgrade: "yes"
+        update_cache: yes
+
+    - name: Install fluent-bit
+      apt:
+        name: fluent-bit
+        force: True
+        state: present
+
+    - name: Make sure fluent-bit service is up and running
+      systemd:
+        state: started
+        name: fluent-bit
+        enabled: True

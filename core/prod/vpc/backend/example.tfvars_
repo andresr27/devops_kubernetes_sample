@@ -1,0 +1,14 @@
+# all .tfvars files, which are likely to contain sensitive data, such as
+# password, private keys, and other secrets should not be part of version 
+# control as they are data points which are potentially sensitive and subject 
+# to change depending on the environment.
+
+# This is just a exemple of the *.tfvars that should be used localy whilw deploying the terraform scripts
+# Just rename the file from "example.tfvars_" to something more suted like "resources.tfvars"
+# Then when you apply the terraform don't forget to pass this file as a var-file argument
+# Ex: terraform plan -var-file resources.tfvars
+# The same will apply with you want to destroy
+# Ex: terraform destroy -var-file resources.tfvars
+
+s3_bucket_name = "tfstate-da-bdevcore-dev"
+dynamodb_table_name = "terraform-state-locking"
