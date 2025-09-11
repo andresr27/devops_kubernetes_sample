@@ -105,9 +105,9 @@ ___
 ## 🎁 Acknowledgements    
   - This project was inspired by [this documentation](https://www.terraform.io/language/settings/backends/s3).
   - This project was based on [this tutorial](https://www.terraform.io/language/settings/backends/s3).
-  - Many thanks to [BairesDev](https://www.bairesdev.com/) and the whole R&D Team
+
 ---
 
 ## 📲 Contact
-- Created by [@pedrodeazevedo](pedro.deazevedo@bairesdev.com) - feel free to contact me!
+- Created by [@your_favaorite_admin](admin@sample-domain.io) - feel free to contact me!
 ---

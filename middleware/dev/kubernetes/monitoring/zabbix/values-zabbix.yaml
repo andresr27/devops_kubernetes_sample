@@ -1,0 +1,63 @@
+# values-zabbix.yaml - Updated with Prometheus integration
+zabbix-server:
+  env:
+    ZBX_STARTPOLLERS: 5
+    ZBX_STARTPREPROCESSORS: 3
+    ZBX_STARTPOLLERSUNREACHABLE: 1
+    ZBX_STARTTRAPPERS: 5
+    ZBX_STARTIPMIPOLLERS: 0
+    ZBX_STARTHTTPPOLLERS: 3  # Enable HTTP pollers for Prometheus
+    ZBX_STARTDISCOVERERS: 1
+    ZBX_STARTHISTORYSYNCERS: 4
+    ZBX_STARTTIMERSYNCERS: 1
+    ZBX_STARTESCALATORS: 1
+    ZBX_STARTALERTERS: 3
+
+  extraVolumes:
+    - name: prometheus-template
+      configMap:
+        name: zabbix-prometheus-template
+
+  extraVolumeMounts:
+    - name: prometheus-template
+      mountPath: /etc/zabbix/templates/prometheus-template.xml
+      subPath: prometheus_template.xml
+
+  # Add custom configuration for Prometheus
+  config:
+  # Add any custom zabbix_server.conf settings here
+  # For example:
+  # StartHTTPPollers=3
+
+zabbix-web:
+  env:
+    PHP_TZ: "UTC"
+
+  # Optional: Add PHP settings if needed for larger API responses
+  php:
+    maxExecutionTime: 300
+    memoryLimit: 256M
+    postMaxSize: 32M
+    uploadMaxFilesize: 16M
+
+# Add a helper container to import templates on startup
+helper:
+  enabled: true
+  image:
+    repository: curlimages/curl
+    tag: latest
+  command:
+    - sh
+    - -c
+    - |
+      # Wait for Zabbix to be ready, then import templates
+      until curl -s http://zabbix-web:80/ > /dev/null; do
+        echo "Waiting for Zabbix web..."
+        sleep 5
+      done
+      echo "Zabbix web is ready, importing templates..."
+      # Import template via API
+      curl -s -X POST -H "Content-Type: application/json" \
+        -d '{"jsonrpc":"2.0","method":"user.login","params":{"user":"Admin","password":"zabbix"},"id":1}' \
+        http://zabbix-web:80/api_jsonrpc.php
+      sleep 10

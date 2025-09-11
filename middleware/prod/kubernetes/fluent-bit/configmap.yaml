@@ -33,7 +33,7 @@ data:
         Path              /var/log/containers/aws-load-balancer-controller-*.log
         Parser            cri
         Docker_Mode       On
-        DB                /var/log/flb_kube_cma_be.db
+        DB                /var/log/flb_kube_app_be.db
         Mem_Buf_Limit     50MB
         Skip_Long_Lines   Off
         Refresh_Interval  5
@@ -82,7 +82,7 @@ data:
         Name              tail
         Tag               apps.*
         Path              /var/log/containers/*.log
-        Exclude_Path      /var/log/containers/aws-load-balancer-controller-*.log, /var/log/containers/aws-node-*.log,/var/log/containers/coredns-*.log, /var/log/containers/fluent-bit-*.log, /var/log/containers/cma-frontend-service-*.log, /var/log/containers/cma-backend-service-*.log, /var/log/containers/csi-snapshotter-*.log
+        Exclude_Path      /var/log/containers/aws-load-balancer-controller-*.log, /var/log/containers/aws-node-*.log,/var/log/containers/coredns-*.log, /var/log/containers/fluent-bit-*.log, /var/log/containers/app-frontend-service-*.log, /var/log/containers/app-backend-service-*.log, /var/log/containers/csi-snapshotter-*.log
         Parser            cri
         Docker_Mode       On
         DB                /var/log/flb_kube_app.db
@@ -136,17 +136,17 @@ data:
         tls                 On
         tls.verify          Off
 
-  output-elasticsearch-cma-fe.conf: |
+  output-elasticsearch-app-fe.conf: |
     [OUTPUT]
         Name                es
-        Match               cma.fe.*
+        Match               app.fe.*
         Host                ${OS_DOMAIN_HOST}
         Port                443
         HTTP_User           ${OS_AUTH_USER}
         HTTP_Passwd         ${OS_AUTH_PASS}
         Logstash_Format     Off
         index               k8s-apps-
-        Pipeline            k8s_cma_fe_test_convert
+        Pipeline            k8s_app_fe_test_convert
         Replace_Dots        On
         Suppress_Type_Name  On
         Retry_Limit         10

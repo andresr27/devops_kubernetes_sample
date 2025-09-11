@@ -1,0 +1,82 @@
+# zabbix-prometheus-template.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zabbix-prometheus-template
+  namespace: monitoring
+data:
+  prometheus_template.xml: |
+    <?xml version="1.0" encoding="UTF-8"?>
+    <zabbix_export>
+      <version>6.4</version>
+      <date>2023-12-07T10:00:00Z</date>
+      <templates>
+        <template>
+          <template>Prometheus Metrics</template>
+          <name>Prometheus Metrics</name>
+          <groups>
+            <group>
+              <name>Templates</name>
+            </group>
+          </groups>
+          <items>
+            <item>
+              <name>Kubernetes Node CPU Usage</name>
+              <type>HTTP_AGENT</type>
+              <key>prometheus.node.cpu.usage</key>
+              <url>http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090/api/v1/query?query=(1%20-%20avg(rate(node_cpu_seconds_total%7Bmode%3D%22idle%22%7D%5B5m%5D))%20by%20(instance))%20*%20100</url>
+              <value_type>FLOAT</value_type>
+              <units>%</units>
+              <delay>60s</delay>
+              <preprocessing>
+                <step>
+                  <type>JSONPATH</type>
+                  <parameters>
+                    <parameter>$.data.result[0].value[1]</parameter>
+                  </parameters>
+                </step>
+                <step>
+                  <type>MULTIPLIER</type>
+                  <parameters>
+                    <parameter>1</parameter>
+                  </parameters>
+                </step>
+              </preprocessing>
+            </item>
+            <item>
+              <name>Kubernetes Node Memory Usage</name>
+              <type>HTTP_AGENT</type>
+              <key>prometheus.node.memory.usage</key>
+              <url>http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090/api/v1/query?query=(1%20-%20(node_memory_MemAvailable_bytes%20%2F%20node_memory_MemTotal_bytes))%20*%20100</url>
+              <value_type>FLOAT</type>
+              <units>%</units>
+              <delay>60s</delay>
+              <preprocessing>
+                <step>
+                  <type>JSONPATH</type>
+                  <parameters>
+                    <parameter>$.data.result[0].value[1]</parameter>
+                  </parameters>
+                </step>
+                <step>
+                  <type>MULTIPLIER</type>
+                  <parameters>
+                    <parameter>1</parameter>
+                  </parameters>
+                </step>
+              </preprocessing>
+            </item>
+          </items>
+          <macros>
+            <macro>
+              <macro>{$PROMETHEUS_URL}</macro>
+              <value>http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090</value>
+            </macro>
+            <macro>
+              <macro>{$PROMETHEUS_METRICS_PATH}</macro>
+              <value>/api/v1/query</value>
+            </macro>
+          </macros>
+        </template>
+      </templates>
+    </zabbix_export>

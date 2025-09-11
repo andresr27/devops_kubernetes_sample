@@ -1,49 +1,4 @@
-# Core Infrastructure as Code
-
-## Overview
-
-This repository contains Terraform configurations for provisioning and managing core cloud infrastructure following industry best practices. The infrastructure is organized in a layered approach, ensuring separation of concerns, environment isolation, and maintainability.
-
-## Architecture Philosophy
-
-We follow a **layer-based separation** pattern:
-
-- **Core Layer**: Foundational network and security infrastructure
-- **Middleware Layer**: Shared services and platform components
-- **Application Layer**: Environment-specific application infrastructure
-
-This separation allows different teams to work concurrently while maintaining clear boundaries and ownership.
-
-## Infrastructure Components
-
-### Core Layer
-- **VPC Networking**: Multi-AZ VPC with public, private, and isolated subnets
-- **Network Security**: Security groups, NACLs, and network segmentation
-- **Identity & Access Management**: IAM roles and policies with least privilege
-- **DNS Management**: Route53 hosted zones and record sets
-
-### Middleware Layer
-- **Kubernetes Cluster**: EKS cluster with managed node groups
-- **Database Services**: RDS PostgreSQL with high availability setup
-- **Caching Layer**: Elasticache Redis clusters
-- **Message Queues**: SQS queues and SNS topics
-
-### Application Layer
-- **Containerized Applications**: ECS/EKS services and deployments
-- **Load Balancers**: ALB/NLB configurations
-- **Monitoring & Logging**: CloudWatch alarms and dashboards
-- **CI/CD Integration**: CodePipeline and CodeBuild configurations
-
-## Environment Strategy
-
-We maintain three distinct environments:
-
-1. **Development**: For active development and testing
-2. **Staging**: For pre-production validation and testing
-3. **Production**: For live customer traffic
-
-Each environment has its own configuration while sharing common foundational patterns.
-
+# Core infrastructure
 ## Repository Structure
 
 ```
@@ -171,5 +126,3 @@ This infrastructure code is proprietary and maintained by [Your Company Name]. A
 ---
 
 **Note**: This documentation is living and should be updated as the infrastructure evolves. Always refer to the latest version of this README and supplementary documentation in the `/docs` directory.
-
-

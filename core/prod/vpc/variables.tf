@@ -12,7 +12,7 @@ variable "aws_region" {
 }
 variable "env_prefix" {
   type        = string
-  description = "Enviroment prefix. Ex: DA-Bdevcore-Dev"
+  description = "Enviroment prefix. Ex: Dev"
 }
 variable "businessowner" {
   type        = string
@@ -20,7 +20,7 @@ variable "businessowner" {
 }
 variable "businessunit" {
   type        = string
-  description = "Tag for Business Unit. Ex: RD, WD, IT"
+  description = "Tag for Business Unit. Ex: IT"
 }
 variable "env" {
   type        = string
@@ -34,7 +34,7 @@ variable "app" {
 variable "domain_name" {
   type        = string
   description = "Domain Name"
-  default     = "bairesdev.com"
+  default     = "sample-domain.io"
 }
 variable "availability_zone_a" {
   type        = string

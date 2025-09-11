@@ -10,10 +10,10 @@ resource "aws_security_group" "sg_private_backend" {
 
   tags = {
     Name            = "${var.env_prefix}_Backend"
-    Environment     = "${var.env}"
-    BusinessOwner   = "${var.businessowner}"
-    BusinessUnit    = "${var.businessunit}"
-    App             = "${var.app}"
+    Environment     = var.env
+    BusinessOwner   = var.businessowner
+    BusinessUnit    = var.businessunit
+    App             = var.app
     Orchestrated_By = "Terraform"
     Description     = "Databases such as MSSQL will be deployed here. Note that most RDMS are deployed to the central AWS Database account."
   }
@@ -25,7 +25,7 @@ resource "aws_security_group_rule" "sg_private_backend_ssh" {
   from_port         = 22
   to_port           = 22
   cidr_blocks       = ["172.0.0.0/8"]
-  description       = "Allow SSH from BairesDev Cloud Net"
+  description       = "Allow SSH from  Cloud Net"
   security_group_id = aws_security_group.sg_private_backend.id
   depends_on        = [aws_security_group.sg_private_backend]
 }
@@ -36,7 +36,7 @@ resource "aws_security_group_rule" "sg_private_backend_mysql" {
   from_port         = 3306
   to_port           = 3306
   cidr_blocks       = ["172.0.0.0/8"]
-  description       = "Allow mysql from BairesDev Cloud Net"
+  description       = "Allow mysql from  Cloud Net"
   security_group_id = aws_security_group.sg_private_backend.id
   depends_on        = [aws_security_group.sg_private_backend]
 }
@@ -48,10 +48,10 @@ resource "aws_security_group" "sg_private_efs" {
 
   tags = {
     Name            = "${var.env_prefix}_EFS"
-    Environment     = "${var.env}"
-    BusinessOwner   = "${var.businessowner}"
-    BusinessUnit    = "${var.businessunit}"
-    App             = "${var.app}"
+    Environment     = var.env
+    BusinessOwner   = var.businessowner
+    BusinessUnit    = var.businessunit
+    App             = var.app
     Orchestrated_By = "Terraform"
     Description     = "Private AWS EFS ports."
   }
@@ -63,7 +63,7 @@ resource "aws_security_group_rule" "sg_private_backend_efs1" {
   from_port         = 2049
   to_port           = 2049
   cidr_blocks       = ["172.0.0.0/8"]
-  description       = "Allow efs ports from BairesDev Cloud Net"
+  description       = "Allow efs ports from  Cloud Net"
   security_group_id = aws_security_group.sg_private_efs.id
   depends_on        = [aws_security_group.sg_private_efs]
 }
@@ -74,7 +74,7 @@ resource "aws_security_group_rule" "sg_private_backend_efs2" {
   from_port         = 2049
   to_port           = 2049
   cidr_blocks       = ["172.0.0.0/8"]
-  description       = "Allow efs ports from BairesDev Cloud Net"
+  description       = "Allow efs ports from  Cloud Net"
   security_group_id = aws_security_group.sg_private_efs.id
   depends_on        = [aws_security_group.sg_private_efs]
 }
@@ -85,7 +85,7 @@ resource "aws_security_group_rule" "sg_private_backend_efs3" {
   from_port         = 100
   to_port           = 4000
   cidr_blocks       = ["172.0.0.0/8"]
-  description       = "Allow efs ports from BairesDev Cloud Net"
+  description       = "Allow efs ports from  Cloud Net"
   security_group_id = aws_security_group.sg_private_efs.id
   depends_on        = [aws_security_group.sg_private_efs]
 }
@@ -112,10 +112,10 @@ resource "aws_security_group" "sg_private_services" {
 
   tags = {
     Name            = "${var.env_prefix}_Private_Services"
-    Environment     = "${var.env}"
-    BusinessOwner   = "${var.businessowner}"
-    BusinessUnit    = "${var.businessunit}"
-    App             = "${var.app}"
+    Environment     = var.env
+    BusinessOwner   = var.businessowner
+    BusinessUnit    = var.businessunit
+    App             = var.app
     Orchestrated_By = "Terraform"
     Description     = "Private / Internal APIs will be deployed into this tier"
   }
@@ -138,11 +138,8 @@ resource "aws_security_group_rule" "sg_private_services_ingress_ssh" {
   from_port         = 22
   to_port           = 22
   cidr_blocks       = ["172.0.0.0/8"]
-  description       = "Allow all inbound SSH traffic on port 22 to Private Services from BairesDev internal network"
+  description       = "Allow all inbound SSH traffic on port 22 to Private Services from  internal network"
   security_group_id = aws_security_group.sg_private_services.id
-  /*Swap out cidr_blocks key for below source_security_group_id key if you want to start allowing only specific SG groups.
-  More targeted SG rules will be needed to cater for specific SG groups that will need access, including cross AWS account access, and also workstation IP ranges */
-  #source_security_group_id = "${aws_security_group.sg_private_presentation.id}"
   depends_on = [aws_security_group.sg_private_services]
 }
 
@@ -152,11 +149,8 @@ resource "aws_security_group_rule" "sg_private_services_ingress_http" {
   from_port         = 80
   to_port           = 80
   cidr_blocks       = ["172.0.0.0/8"]
-  description       = "Allow all inbound HTTP traffic on port 80 to Private Services from BairesDev internal network"
+  description       = "Allow all inbound HTTP traffic on port 80 to Private Services from  internal network"
   security_group_id = aws_security_group.sg_private_services.id
-  /*Swap out cidr_blocks key for below source_security_group_id key if you want to start allowing only specific SG groups.
-  More targeted SG rules will be needed to cater for specific SG groups that will need access, including cross AWS account access, and also workstation IP ranges */
-  #source_security_group_id = "${aws_security_group.sg_private_presentation.id}"
   depends_on = [aws_security_group.sg_private_services]
 }
 
@@ -166,11 +160,8 @@ resource "aws_security_group_rule" "sg_private_services_ingress_https" {
   from_port         = 443
   to_port           = 443
   cidr_blocks       = ["172.0.0.0/8"]
-  description       = "Allow all inbound HTTPS traffic on port 80 to Private Services from BairesDev internal network"
+  description       = "Allow all inbound HTTPS traffic on port 80 to Private Services from  internal network"
   security_group_id = aws_security_group.sg_private_services.id
-  /*Swap out cidr_blocks key for below source_security_group_id key if you want to start allowing only specific SG groups.
-  More targeted SG rules will be needed to cater for specific SG groups that will need access, including cross AWS account access, and also workstation IP ranges */
-  #source_security_group_id = "${aws_security_group.sg_private_presentation.id}"
   depends_on = [aws_security_group.sg_private_services]
 }
 
@@ -180,11 +171,8 @@ resource "aws_security_group_rule" "sg_private_services_ingress_mongo" {
   from_port         = 27017
   to_port           = 27017
   cidr_blocks       = ["172.0.0.0/8"]
-  description       = "Allow all inbound Mongo traffic on port 27017 to Private Services from BairesDev internal network"
+  description       = "Allow all inbound Mongo traffic on port 27017 to Private Services from  internal network"
   security_group_id = aws_security_group.sg_private_services.id
-  /*Swap out cidr_blocks key for below source_security_group_id key if you want to start allowing only specific SG groups.
-  More targeted SG rules will be needed to cater for specific SG groups that will need access, including cross AWS account access, and also workstation IP ranges */
-  #source_security_group_id = "${aws_security_group.sg_private_presentation.id}"
   depends_on = [aws_security_group.sg_private_services]
 }
 
@@ -199,10 +187,10 @@ resource "aws_security_group" "sg_private_presentation" {
 
   tags = {
     Name            = "${var.env_prefix}_Private_Presentation"
-    Environment     = "${var.env}"
-    BusinessOwner   = "${var.businessowner}"
-    BusinessUnit    = "${var.businessunit}"
-    App             = "${var.app}"
+    Environment     = var.env
+    BusinessOwner   = var.businessowner
+    BusinessUnit    = var.businessunit
+    App             = var.app
     Orchestrated_By = "Terraform"
     Description     = "Private Presentation Applications and Internal Load Balancers will be deployed into this tier"
   }
@@ -225,7 +213,7 @@ resource "aws_security_group_rule" "sg_private_presentation_ping" {
   from_port         = -1
   to_port           = -1
   cidr_blocks       = ["172.0.0.0/8"]
-  description       = "Ping from BairesDev internal network to Private Presentation"
+  description       = "Ping from  internal network to Private Presentation"
   security_group_id = aws_security_group.sg_private_presentation.id
   depends_on        = [aws_security_group.sg_private_presentation]
 }
@@ -236,7 +224,7 @@ resource "aws_security_group_rule" "sg_private_presentation_ingress_ssh" {
   from_port         = 22
   to_port           = 22
   cidr_blocks       = ["172.0.0.0/8"]
-  description       = "SSH access from BairesDev Cloud Net to Private Presentation resources"
+  description       = "SSH access from  Cloud Net to Private Presentation resources"
   security_group_id = aws_security_group.sg_private_presentation.id
   depends_on        = [aws_security_group.sg_private_presentation]
 }
@@ -247,7 +235,7 @@ resource "aws_security_group_rule" "sg_private_presentation_ingress_http" {
   from_port         = 80
   to_port           = 80
   cidr_blocks       = ["172.0.0.0/8"]
-  description       = "HTTP Access from all the BairesDev network to Private Presentation resources"
+  description       = "HTTP Access from all the  network to Private Presentation resources"
   security_group_id = aws_security_group.sg_private_presentation.id
   depends_on        = [aws_security_group.sg_private_presentation]
 }
@@ -258,7 +246,7 @@ resource "aws_security_group_rule" "sg_private_presentation_ingress_https" {
   from_port         = 443
   to_port           = 443
   cidr_blocks       = ["172.0.0.0/8"]
-  description       = "HTTPS Access from all the BairesDev network to Private Presentation resources"
+  description       = "HTTPS Access from all the  network to Private Presentation resources"
   security_group_id = aws_security_group.sg_private_presentation.id
   depends_on        = [aws_security_group.sg_private_presentation]
 }
@@ -301,7 +289,7 @@ resource "aws_security_group_rule" "sg_internal_elbs_ingress_http" {
   from_port         = 80
   to_port           = 80
   cidr_blocks       = ["172.0.0.0/8"]
-  description       = "HTTP traffic from internal BairesDev network to Internal ELBs and ALBs"
+  description       = "HTTP traffic from internal  network to Internal ELBs and ALBs"
   security_group_id = aws_security_group.sg_internal_elbs.id
   depends_on        = [aws_security_group.sg_internal_elbs]
 }
@@ -313,7 +301,7 @@ resource "aws_security_group_rule" "sg_internal_elbs_ingress_https" {
   to_port           = 443
   cidr_blocks       = ["172.0.0.0/8"]
   security_group_id = aws_security_group.sg_internal_elbs.id
-  description       = "HTTPS traffic from internal BairesDev network to Internal ELBs and ALBs"
+  description       = "HTTPS traffic from internal  network to Internal ELBs and ALBs"
   depends_on        = [aws_security_group.sg_internal_elbs]
 }
 
