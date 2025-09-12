@@ -6,13 +6,13 @@
 
 #Running checks:
 
-## CMA prod
-cmapp.sd-prd.bairesdev.net https 443 /login
-cma-api.sd-prd.bairesdev.net https 443 /ping
+## app prod
+app.prod.sample-domain.io https 443 /login
+app-api.prod.sample-domain.io https 443 /ping
 
-##CMA dev
-cmapp.sd-dev.bairesdev.net https 443 /login
-cma-api.sd-dev.bairesdev.net https 443 /ping
+##app dev
+app.sd-dev.sample-domain.io https 443 /login
+app-api.sd-dev.sample-domain.io https 443 /ping
 
 ##Dataplatform
 superset.sample-domain.io https 443 /
@@ -24,7 +24,7 @@ metabase.sample-domain.io https 443 /
 # Error testing
 
 ## 404 Not found#
-#cma-backend-eks.sd-prd.bairesdev.net https 443 /
+#app-backend-eks.prod.sample-domain.io https 443 /
 
 ## 401 Not authorized
 #opensearch.dev.sample-domain.io https 443 /

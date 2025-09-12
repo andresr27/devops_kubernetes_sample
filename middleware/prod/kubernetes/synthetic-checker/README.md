@@ -20,7 +20,7 @@ Very simple Python application used for running simple synthetic checks. Doing t
 ### Run locally
     python main.py
     
-    {"event": {"check_name": "cmapp.sd-prd.bairesdev.net", "endpoint": "https://cmapp.sd-prd.bairesdev.net:443/login", "status_code": 200, "source_id": "Env var not set", "message": "Omitted"}, "level": "info", "ts": "2024-08-29T13:10:12.728046Z"}
+    {"event": {"check_name": "app.prod.sample-domain.io", "endpoint": "https://app.prod.sample-domain.io:443/login", "status_code": 200, "source_id": "Env var not set", "message": "Omitted"}, "level": "info", "ts": "2024-08-29T13:10:12.728046Z"}
 
 
 

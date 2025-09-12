@@ -7,11 +7,11 @@ This repository contains Terraform configurations for provisioning and managing 
 
 We follow a **layer-based separation** pattern:
 
-| Layer                                                                                  | Team Responsible | Key Components | Description |
-|----------------------------------------------------------------------------------------|------------------|----------------|-------------|
-| [**Core Layer**](https://github.com/andresr27/devops_kubernetes_sample/tree/main/core) | Platform Engineering | VPC, Security Groups, IAM, DNS | Foundational network and security infrastructure |
-| **Middleware Layer**                                                                   | Platform Engineering | Kubernetes, Databases, Caching, Messaging | Shared services and platform components |
-| **Application Layer**                                                                  | Application Teams | Containerized Apps, Load Balancers, CI/CD | Environment-specific application infrastructure |
+| Layer                                                                                                       | Team Responsible | Key Components | Description |
+|-------------------------------------------------------------------------------------------------------------|------------------|----------------|-------------|
+| [**Core Layer**](https://github.com/andresr27/devops_kubernetes_sample/tree/main/core)                      | Platform Engineering | VPC, Security Groups, IAM, DNS | Foundational network and security infrastructure |
+| [**Middleware Layer**](https://github.com/andresr27/devops_kubernetes_sample/tree/latest_branch/middleware) | Platform Engineering | Kubernetes, Databases, Caching, Messaging | Shared services and platform components |
+| **Application Layer**                                                                                       | Application Teams | Containerized Apps, Load Balancers, CI/CD | Environment-specific application infrastructure |
 
 This separation allows different teams to work concurrently while maintaining clear boundaries and ownership.
 
