@@ -11,7 +11,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    - host: prometheus.local
+    - host: prometheus.minikube.local
       http:
         paths:
           - path: /
