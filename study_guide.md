@@ -238,3 +238,399 @@ This is a framework for measuring and defining the reliability of your service. 
 | **SLA** | **Contract** | What happens if we **miss** the goal? | If uptime < 99.9%, customers get a 10% service credit. |
 
 For your interview, you could say: "To expand the monitoring system, I would first work with the product team to define SLOs based on user-centric SLIs like latency and error rate for key features. Then, I'd ensure Prometheus is capturing those metrics and set up alerts to fire *before* we breach those SLOs, not just when the service is fully down." This shows strategic thinking.
+
+
+# Implementing a Canary Release Pipeline with Kubernetes and GitHub Actions
+
+I'll help you design and implement a simple canary release pipeline for a web application on Kubernetes using GitHub Actions. This is a comprehensive solution that covers all the key aspects mentioned in your job requirements.
+
+## Architecture Overview
+
+1. **Kubernetes Setup**: Deployments for stable and canary versions with a service to route traffic
+2. **GitHub Actions Pipeline**: Automated build, test, and deployment workflow
+3. **Traffic Management**: Using Kubernetes service with pod selection labels
+4. **Monitoring**: Basic health checks to validate the canary deployment
+
+## Implementation Steps
+
+### 1. Kubernetes Manifests
+
+First, let's create the Kubernetes deployment and service manifests:
+
+**deployment.yaml**:
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webapp-stable
+  labels:
+    app: webapp
+    track: stable
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: webapp
+      track: stable
+  template:
+    metadata:
+      labels:
+        app: webapp
+        track: stable
+        version: "v1.0.0"  # This will be updated by the pipeline
+    spec:
+      containers:
+      - name: webapp
+        image: your-registry/webapp:stable  # Will be replaced
+        ports:
+        - containerPort: 8080
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webapp-canary
+  labels:
+    app: webapp
+    track: canary
+spec:
+  replicas: 1  # Start with just one pod for canary
+  selector:
+    matchLabels:
+      app: webapp
+      track: canary
+  template:
+    metadata:
+      labels:
+        app: webapp
+        track: canary
+        version: "v1.0.0"  # This will be updated by the pipeline
+    spec:
+      containers:
+      - name: webapp
+        image: your-registry/webapp:canary  # Will be replaced
+        ports:
+        - containerPort: 8080
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+```
+
+**service.yaml**:
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: webapp-service
+spec:
+  selector:
+    app: webapp  # This selects both stable and canary pods
+  ports:
+  - port: 80
+    targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: webapp-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: your-app.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: webapp-service
+            port:
+              number: 80
+```
+
+### 2. GitHub Actions Workflow
+
+Create `.github/workflows/canary-deployment.yaml`:
+
+```yaml
+name: Canary Deployment Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  K8S_NAMESPACE: production
+  APP_NAME: webapp
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+    - name: Run tests
+      run: |
+        # Add your test commands here
+        python -m pytest tests/ -v
+
+  build-and-push:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Log in to container registry
+      uses: docker/login-action@v2
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata for Docker
+      id: meta
+      uses: docker/metadata-action@v4
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=sha,prefix=,suffix=,format=long
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  deploy-canary:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    environment: production
+    permissions:
+      contents: read
+      deployments: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Configure Kubernetes
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'v1.25.0' # Specify your kubectl version
+
+    - name: Deploy canary
+      run: |
+        # Update the canary deployment with the new image
+        kubectl set image deployment/webapp-canary webapp=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} -n ${{ env.K8S_NAMESPACE }}
+        
+        # Wait for canary to be ready
+        kubectl rollout status deployment/webapp-canary -n ${{ env.K8S_NAMESPACE }} --timeout=300s
+        
+        # Get the canary pod name
+        CANARY_POD=$(kubectl get pods -n ${{ env.K8S_NAMESPACE }} -l track=canary -o jsonpath='{.items[0].metadata.name}')
+        
+        # Run basic health check against the canary pod
+        kubectl exec $CANARY_POD -n ${{ env.K8S_NAMESPACE }} -- curl -s http://localhost:8080/health || exit 1
+      env:
+        KUBECONFIG: ${{ secrets.KUBECONFIG }}
+
+    - name: Wait for canary stabilization
+      run: |
+        # Wait for some time to monitor canary performance
+        sleep 300  # 5 minutes
+        
+        # Check canary pod logs for errors
+        kubectl logs -n ${{ env.K8S_NAMESPACE }} -l track=canary --tail=50
+      env:
+        KUBECONFIG: ${{ secrets.KUBECONFIG }}
+
+  promote-canary:
+    runs-on: ubuntu-latest
+    needs: deploy-canary
+    environment: production
+    # This step requires manual approval
+    if: always() && needs.deploy-canary.result == 'success'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Configure Kubernetes
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'v1.25.0'
+
+    - name: Promote canary to stable
+      run: |
+        # Update stable deployment with the canary image
+        kubectl set image deployment/webapp-stable webapp=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} -n ${{ env.K8S_NAMESPACE }}
+        
+        # Scale up stable deployment
+        kubectl scale deployment/webapp-stable --replicas=3 -n ${{ env.K8S_NAMESPACE }}
+        
+        # Scale down canary deployment
+        kubectl scale deployment/webapp-canary --replicas=0 -n ${{ env.K8S_NAMESPACE }}
+        
+        # Wait for stable rollout to complete
+        kubectl rollout status deployment/webapp-stable -n ${{ env.K8S_NAMESPACE }} --timeout=300s
+      env:
+        KUBECONFIG: ${{ secrets.KUBECONFIG }}
+
+    - name: Update deployment status
+      run: |
+        # Notify success (you could integrate with Slack, Teams, etc.)
+        echo "Deployment completed successfully for commit ${{ github.sha }}"
+```
+
+### 3. Python Script for Advanced Canary Analysis
+
+For more sophisticated canary analysis, create a Python script to automate validation:
+
+**canary-validation.py**:
+```python
+#!/usr/bin/env python3
+
+import requests
+import json
+import os
+import time
+import sys
+from kubernetes import client, config
+
+def validate_canary():
+    # Load Kubernetes config
+    try:
+        config.load_incluster_config()  # When running inside cluster
+    except:
+        config.load_kube_config()  # When running locally
+    
+    v1 = client.CoreV1Api()
+    
+    # Get canary pods
+    canary_pods = v1.list_namespaced_pod(
+        namespace=os.getenv('K8S_NAMESPACE', 'default'),
+        label_selector="track=canary"
+    )
+    
+    if not canary_pods.items:
+        print("No canary pods found!")
+        return False
+    
+    # Test each canary pod
+    success_count = 0
+    for pod in canary_pods.items:
+        pod_name = pod.metadata.name
+        print(f"Testing canary pod: {pod_name}")
+        
+        try:
+            # Execute health check inside the pod
+            resp = requests.get(f"http://{pod.status.pod_ip}:8080/health", timeout=5)
+            if resp.status_code == 200:
+                print(f"✓ Pod {pod_name} health check passed")
+                success_count += 1
+            else:
+                print(f"✗ Pod {pod_name} health check failed: HTTP {resp.status_code}")
+        except Exception as e:
+            print(f"✗ Pod {pod_name} health check error: {str(e)}")
+    
+    # Determine if canary is successful
+    success_rate = success_count / len(canary_pods.items) if canary_pods.items else 0
+    print(f"Canary success rate: {success_rate:.2%}")
+    
+    return success_rate >= 0.8  # Require 80% success rate
+
+if __name__ == "__main__":
+    # Wait a bit for pods to stabilize
+    time.sleep(30)
+    
+    # Run validation
+    if validate_canary():
+        print("Canary validation passed!")
+        sys.exit(0)
+    else:
+        print("Canary validation failed!")
+        sys.exit(1)
+```
+
+### 4. Setup Instructions
+
+1. **Prepare your Kubernetes cluster** and ensure you have access via kubectl
+2. **Create the necessary secrets in GitHub**:
+    - `KUBECONFIG`: Your Kubernetes configuration file
+    - Container registry credentials if using a private registry
+
+3. **Apply the initial Kubernetes manifests**:
+   ```bash
+   kubectl apply -f deployment.yaml
+   kubectl apply -f service.yaml
+   ```
+
+4. **Configure GitHub Environments**:
+    - Go to your repository Settings → Environments
+    - Create a "production" environment
+    - Configure deployment protection rules with required reviewers
+
+5. **Update the workflow environment variables** to match your setup
+
+### 5. Advanced Enhancements
+
+For a production-ready system, consider adding:
+
+1. **Service Mesh Integration** (Istio/Linkerd) for more precise traffic control
+2. **Prometheus metrics validation** in the canary stage
+3. **Automated rollback** on failure detection
+4. **Integration with your monitoring system** (e.g., Prometheus alerts)
+5. **Database migration handling** if your application requires schema changes
+
+This implementation demonstrates your expertise in Kubernetes, Docker, CI/CD, Python automation, and shows an understanding of progressive delivery strategies - all key requirements for the DevOps Lead position.
