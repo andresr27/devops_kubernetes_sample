@@ -633,4 +633,220 @@ For a production-ready system, consider adding:
 4. **Integration with your monitoring system** (e.g., Prometheus alerts)
 5. **Database migration handling** if your application requires schema changes
 
-This implementation demonstrates your expertise in Kubernetes, Docker, CI/CD, Python automation, and shows an understanding of progressive delivery strategies - all key requirements for the DevOps Lead position.
+This implementation demonstrates your expertise in Kubernetes, Docker, CI/CD, Python automation, and shows an understanding 
+of progressive delivery strategies - all key requirements for the DevOps Lead position.
+
+# Improved Dockerfile and Configuration for Production
+
+I'll help you improve your Dockerfile for production use and set up environment variables properly. Here's the optimized solution:
+
+## Improved Dockerfile
+
+```dockerfile
+# Use an official Python runtime as a base image with a specific version for reproducibility
+FROM python:3.7-slim
+
+# Set environment variables for Python
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
+ENV FLASK_DEBUG=0
+ENV FLASK_ENV=production
+
+# Create a non-root user for security
+RUN adduser --disabled-password --gecos '' appuser
+
+# Set working directory
+WORKDIR /app
+
+# Copy requirements first to leverage Docker cache
+COPY requirements.txt .
+
+# Install dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY . .
+
+# Create .env file from build arguments (optional, see alternative approach below)
+# ARG REGISTRY_URL
+# ARG API_URL
+# RUN echo "REGISTRY_URL=$REGISTRY_URL" >> .env && \
+#     echo "API_URL=$API_URL" >> .env
+
+# Change ownership of the application directory
+RUN chown -R appuser:appuser /app
+
+# Switch to non-root user
+USER appuser
+
+# Expose the port the app runs on
+EXPOSE 5000
+
+# Command to run the application
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "3", "main:app"]
+```
+
+### Generate Dockerfile with a script
+```bash
+#!/bin/bash
+cat > Dockerfile << EOF
+FROM node:18-alpine
+WORKDIR /app
+RUN yarn install --production
+EXPOSE 3000
+CMD ["node", "src/index.js"]
+EOF
+cat Dockerfile
+```
+
+## Set environment Variables at Runtime
+
+For production, it's generally better to pass environment variables at runtime rather than
+baking them into the image. Here's how to modify your deployment to use this approach:
+
+### 1. Update your deployment.yaml
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+
+```
+
+### 2. Update your configmap.yaml
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: flask-demo-config
+  
+data:
+  flights_api_key: 'eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiI0IiwianRpIjoiZTU5MzYxZWNhNDAzYWIyOTdmNzJkNGI4ODg5NDQ0ZjkxYzUxOGZmMmQyOTUwNjhmMjlkYTg3YzUwYzI3MmE3MjRiMzkyNDdjOGU2ZjM3ZjIiLCJpYXQiOjE2NzQ1MDk3NTksIm5iZiI6MTY3NDUwOTc1OSwiZXhwIjoxNzA2MDQ1NzU5LCJzdWIiOiIxOTc3OCIsInNjb3BlcyI6W119.qKWaN0ntSu9pX64Pm7HrxO8yP1ZAC5m3W5iGf8mfAzj3ltPZzWGJdOKGwZLXkGdHXtPDqMYLGSVyKXAK2h0baw'
+  registry_url: 'https://your-registry-url.com'
+  api_url: 'https://your-api-url.com'
+```
+
+### 3. Create a .env.example file
+
+Create a `.env.example` file in your project root to document the required environment variables:
+
+```bash
+# Application settings
+FLASK_DEBUG=0
+FLASK_ENV=production
+
+# API keys and URLs
+FLIGHTS_API_KEY=your_api_key_here
+REGISTRY_URL=https://your-registry-url.com
+API_URL=https://your-api-url.com
+```
+
+### 4. Create a script to generate the ConfigMap
+
+Create a script to generate your ConfigMap from a local .env file (for development purposes):
+
+**generate-configmap.sh**
+```bash
+#!/bin/bash
+
+# Load environment variables from .env file
+if [ -f .env ]; then
+    export $(cat .env | grep -v '#' | awk '/=/ {print $1}')
+fi
+
+# Create or update the ConfigMap
+kubectl create configmap flask-demo-config \
+  --namespace=demo-services \
+  --from-literal=flights_api_key=${FLIGHTS_API_KEY} \
+  --from-literal=registry_url=${REGISTRY_URL} \
+  --from-literal=api_url=${API_URL} \
+  -o yaml --dry-run=client | kubectl apply -f -
+```
+
+### 5. Create a .dockerignore file
+
+To improve build performance and security, create a `.dockerignore` file:
+
+```
+.git
+.env
+*.pyc
+__pycache__
+Dockerfile
+.dockerignore
+README.md
+.gitignore
+```
+
+## Key Improvements
+
+1. **Security**:
+    - Using a non-root user
+    - Not including sensitive information in the image
+    - Using a .dockerignore file to exclude sensitive files
+
+2. **Performance**:
+    - Using Python slim image for smaller size
+    - Separating dependency installation from code copying to leverage Docker cache
+
+3. **Production Readiness**:
+    - Using Gunicorn as a production WSGI server instead of the Flask development server
+    - Setting proper Python environment variables
+    - All configuration passed at runtime via ConfigMap
+
+4. **Maintainability**:
+    - Clear documentation of environment variables
+    - Script to generate ConfigMap from .env file
+
+To use this setup:
+1. Create a `.env` file from the `.env.example` template with your actual values
+2. Run the `generate-configmap.sh` script to create the ConfigMap in your cluster
+3. Build your Docker image: `docker build -t your-image-name .`
+4. Deploy using your updated deployment.yaml
+
+This approach follows Kubernetes best practices by keeping configuration separate from 
+application code and allowing you to change configuration without rebuilding your container image.
+
+
+https://coderbyte.com/candidate-assessment
+Describe how you would implement a continuous deployment pipeline for a web application in a Linux environment.
+
+1. Version Control System (VCS):
+   Host your web application's source code in a VCS like Git (e.g., GitHub, GitLab, Bitbucket). This serves as the single source of truth for your code.
+2. Continuous Integration (CI) Server:
+   Use a CI server (e.g., Jenkins, GitLab CI/CD, GitHub Actions) to automate the build and test process.
+   Configure the CI server to trigger a pipeline whenever changes are pushed to the VCS.
+   Build Stage: Compile your application, resolve dependencies, and create deployable artifacts (e.g., WAR, JAR, Docker image).
+   Test Stage: Run automated unit, integration, and end-to-end tests to ensure code quality and functionality.
+3. Artifact Repository:
+   Store your deployable artifacts in a centralized repository (e.g., Nexus, Artifactory, Docker Hub for Docker images). This ensures versioning and easy retrieval during deployment.
+4. Deployment Environment (Linux Servers):
+   Prepare your Linux servers (e.g., EC2 instances, VMs) where the application will be deployed.
+   Ensure necessary software and dependencies (e.g., web server like Nginx/Apache, application server like Tomcat/JBoss, database) are installed and configured.
+5. Deployment Tool:
+   Utilize a deployment tool (e.g., Ansible, Chef, Puppet, AWS CodeDeploy, Capistrano) to automate the deployment process to your Linux servers.
+   Deployment Script/Configuration: Define the steps required to deploy your application, including:
+   Retrieving the artifact from the repository.
+   Stopping the existing application instance.
+   Copying the new artifact to the deployment target.
+   Configuring the application (e.g., environment variables, database connections).
+   Starting the new application instance.
+   Performing post-deployment health checks.
+6. Pipeline Orchestration:
+   Integrate the CI and CD stages into a cohesive pipeline using your CI server or a dedicated CD tool (e.g., Spinnaker).
+   Define stages like "Build," "Test," "Deploy to Staging," "Deploy to Production."
+   Implement approval gates for critical stages (e.g., before deploying to production).
+7. Monitoring and Rollback:
+   Implement monitoring tools (e.g., Prometheus, Grafana, ELK stack) to track application performance and health after deployment.
+   Establish a clear rollback strategy in case of deployment failures or issues in production. This might involve deploying a previous stable version of the application.
+   Example using Jenkins and Ansible:
+   Git: Code hosted on GitHub.
+   Jenkins:
+   A Jenkins pipeline is triggered on every git push.
+   Build Stage: Maven build for a Java web application, producing a WAR file.
+   Test Stage: Run JUnit tests.
+   Artifact Archiving: Archive the WAR file as a build artifact.
+   Deploy to Staging Stage: Trigger an Ansible playbook to deploy the WAR to a staging Linux server.
+   Deploy to Production Stage: (Manual approval) Trigger another Ansible playbook to deploy the WAR to production Linux servers.
+   Ansible: Playbooks define the steps to copy the WAR file, stop/start Tomcat, and configure the application on the target Linux servers.
+   Monitoring: Tools like Nagios or Zabbix monitor the health of the deployed application.
