@@ -1,63 +1,69 @@
-# values-zabbix.yaml - Updated with Prometheus integration
+# values-zabbix.yaml
 zabbix-server:
-  env:
-    ZBX_STARTPOLLERS: 5
-    ZBX_STARTPREPROCESSORS: 3
-    ZBX_STARTPOLLERSUNREACHABLE: 1
-    ZBX_STARTTRAPPERS: 5
-    ZBX_STARTIPMIPOLLERS: 0
-    ZBX_STARTHTTPPOLLERS: 3  # Enable HTTP pollers for Prometheus
-    ZBX_STARTDISCOVERERS: 1
-    ZBX_STARTHISTORYSYNCERS: 4
-    ZBX_STARTTIMERSYNCERS: 1
-    ZBX_STARTESCALATORS: 1
-    ZBX_STARTALERTERS: 3
-
-  extraVolumes:
-    - name: prometheus-template
-      configMap:
-        name: zabbix-prometheus-template
-
-  extraVolumeMounts:
-    - name: prometheus-template
-      mountPath: /etc/zabbix/templates/prometheus-template.xml
-      subPath: prometheus_template.xml
-
-  # Add custom configuration for Prometheus
-  config:
-  # Add any custom zabbix_server.conf settings here
-  # For example:
-  # StartHTTPPollers=3
-
-zabbix-web:
-  env:
-    PHP_TZ: "UTC"
-
-  # Optional: Add PHP settings if needed for larger API responses
-  php:
-    maxExecutionTime: 300
-    memoryLimit: 256M
-    postMaxSize: 32M
-    uploadMaxFilesize: 16M
-
-# Add a helper container to import templates on startup
-helper:
   enabled: true
   image:
-    repository: curlimages/curl
-    tag: latest
-  command:
-    - sh
-    - -c
-    - |
-      # Wait for Zabbix to be ready, then import templates
-      until curl -s http://zabbix-web:80/ > /dev/null; do
-        echo "Waiting for Zabbix web..."
-        sleep 5
-      done
-      echo "Zabbix web is ready, importing templates..."
-      # Import template via API
-      curl -s -X POST -H "Content-Type: application/json" \
-        -d '{"jsonrpc":"2.0","method":"user.login","params":{"user":"Admin","password":"zabbix"},"id":1}' \
-        http://zabbix-web:80/api_jsonrpc.php
-      sleep 10
+    tag: alpine-6.4.5
+  resources:
+    requests:
+      memory: 512Mi
+      cpu: 250m
+    limits:
+      memory: 1Gi
+      cpu: 500m
+  persistence:
+    enabled: true
+    storageClassName: standard
+    size: 10Gi
+
+zabbix-web:
+  enabled: true
+  image:
+    tag: alpine-6.4.5
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 250m
+  service:
+    type: ClusterIP
+  ingress:
+    enabled: true
+    hosts:
+      - zabbix.minikube.local
+    annotations:
+      nginx.ingress.kubernetes.io/rewrite-target: /
+
+zabbix-agent:
+  enabled: false
+  resources:
+    requests:
+      memory: 64Mi
+      cpu: 50m
+    limits:
+      memory: 128Mi
+      cpu: 100m
+
+postgresql:
+  enabled: true
+  auth:
+    username: zabbix
+    password: "zabbix-password"
+    database: zabbix
+  persistence:
+    enabled: true
+    storageClassName: standard
+    size: 20Gi
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 250m
+    limits:
+      memory: 512Mi
+      cpu: 500m
+
+# Prometheus integration configuration
+prometheus:
+  enabled: true
+  url: "http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090"
