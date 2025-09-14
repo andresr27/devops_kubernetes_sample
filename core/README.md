@@ -86,6 +86,7 @@ terraform apply -var-file=environments/production/terraform.tfvars
 - Regularly rotate credentials and access keys
 - Enable encryption at rest and in transit
 - Implement network segmentation and security zones
+- 
 
 ## Monitoring & Maintenance
 

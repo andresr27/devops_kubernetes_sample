@@ -2,7 +2,7 @@
 
 ##  Test Format (Coderbyte)
 
-A 4-hour test on Coderbyte for a lead position will almost certainly be a **project-based assessment**, not just a series of multiple-choice questions. You will likely be given a scenario or a set of tasks to complete within the time limit. This could involve:
+A 4-hour test on Coderbyte for a lead position will almost certainly be a **project-based assessment**.
 
 *   **Coding:** Writing Python scripts for automation.
 *   **Configuration:** Writing Dockerfiles, Kubernetes YAML manifests, CI/CD pipelines (GitHub Actions/GitLab CI), or configuration management scripts (e.g., Ansible).
@@ -68,7 +68,7 @@ This is the most critical part of your preparation.
         3.  Deploy the new image to your local Kubernetes cluster using `kubectl set image` or a more advanced method like Kustomize or Helm. (You may need a tool like `act` to test GitHub Actions locally).
 
 *   **Monitoring:**
-    *   Install Prometheus and Grafana on your local cluster (helm charts are the easiest way: `helm install prometheus prometheus-community/kube-prometheus-stack`).
+    *   Install Prometheus and Grafana on your local cluster (helm charts are the easiest way:`helm install prometheus prometheus-community/kube-prometheus-stack`).
     *   Get the sample application metrics into Grafana.
     *   Write a simple PromQL query to calculate error rate.
 
@@ -239,8 +239,50 @@ This is a framework for measuring and defining the reliability of your service. 
 
 For your interview, you could say: "To expand the monitoring system, I would first work with the product team to define SLOs based on user-centric SLIs like latency and error rate for key features. Then, I'd ensure Prometheus is capturing those metrics and set up alerts to fire *before* we breach those SLOs, not just when the service is fully down." This shows strategic thinking.
 
+### 4. Securing Kubernetes
 
-# Implementing a Canary Release Pipeline with Kubernetes and GitHub Actions
+#### Kube-bench (Needs improvement)
+Kube-bench is an open-source tool developed by Aqua Security designed to check whether a Kubernetes cluster is deployed securely. It achieves this by running checks against the recommendations outlined in the CIS Kubernetes Benchmark, a security standard published by the Center for Internet Security. 
+Key features and functionalities of Kube-bench:
+CIS Kubernetes Benchmark Compliance:
+Kube-bench automates the process of verifying a Kubernetes cluster's configuration against the best practices and controls defined in the CIS Kubernetes Benchmark.
+Security Assessment:
+It helps identify potential security vulnerabilities and misconfigurations in various areas of a Kubernetes deployment, including host configuration, worker node security, control plane security, and policy enforcement (e.g., RBAC, Pod Security Standards).
+Automated Checks:
+Kube-bench automates the security auditing process, reducing the manual effort required to ensure compliance and consistency across Kubernetes environments.
+Report Generation:
+It generates reports detailing the results of the security checks, indicating which configurations pass or fail the benchmark recommendations. These reports help users understand the security posture of their cluster and prioritize remediation efforts.
+Ease of Use:
+Kube-bench can be run as a Go application, a Docker container, or as a Kubernetes Job, offering flexibility in deployment and integration into existing CI/CD pipelines. Its configuration is managed through easy-to-update YAML files.
+Extensibility:
+Kube-bench supports benchmarks for various Kubernetes flavors, including those offered by public cloud providers like AWS EKS, Azure AKS, and Google GKE, as well as platforms like Rancher RKE2.
+In essence, Kube-bench serves as a vital tool for hardening Kubernetes clusters, ensuring they adhere to established security best practices, and mitigating potential risks before they can be exploited.
+
+#### Kube-hunter (Needs improvement)
+
+Kube-hunter is an open-source penetration testing tool that simulates attacker behavior to find and report security vulnerabilities in Kubernetes clusters. It actively probes the cluster's attack surface, such as API servers and kubelets, to identify weaknesses like exposed services and misconfigurations. While useful for labs and controlled environments, it is now considered maintenance-stopped, and for modern scanning workflows, tools like Trivy are recommended instead.  
+
+Key Features and How it Works
+Simulates Attacks:
+Kube-hunter functions like a real attacker, looking for ways to exploit vulnerabilities within the Kubernetes environment. 
+Identifies Weaknesses:
+It targets the entire Kubernetes attack surface, including the API server, kubelets, and other components. 
+Active and Passive Modes:
+Passive Mode: Simply observes and discovers vulnerabilities without exploiting them, making it safer for sensitive environments. 
+Active Mode: Attempts to exploit found vulnerabilities to discover additional ones. 
+Automated Scanning:
+It automates the process of finding exploitable weaknesses, which is a critical step for DevSecOps teams to take before malicious actors discover them. 
+Comprehensive Scanning:
+It scans for a range of issues, including misconfigurations, exposed services, and vulnerable components. 
+Considerations 
+Maintenance-Stopped:
+The project is no longer actively maintained, meaning it might not be updated for newer Kubernetes versions or threats.
+Use Cases:
+Kube-hunter is primarily recommended for educational purposes, lab exercises, or point-in-time testing in controlled environments.
+Modern Alternatives:
+For automated, modern security scanning workflows, tools like Trivy and the Trivy Operator are now the preferred choice.    
+
+## CICD with Canary Release Pipeline with Kubernetes and GitHub Actions
 
 I'll help you design and implement a simple canary release pipeline for a web application on Kubernetes using GitHub Actions. This is a comprehensive solution that covers all the key aspects mentioned in your job requirements.
 
@@ -272,31 +314,10 @@ spec:
     matchLabels:
       app: webapp
       track: stable
-  template:
-    metadata:
-      labels:
-        app: webapp
-        track: stable
-        version: "v1.0.0"  # This will be updated by the pipeline
-    spec:
-      containers:
-      - name: webapp
-        image: your-registry/webapp:stable  # Will be replaced
-        ports:
-        - containerPort: 8080
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8080
-          initialDelaySeconds: 5
-          periodSeconds: 5
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: 8080
-          initialDelaySeconds: 5
-          periodSeconds: 5
----
+      
+```
+**deployment-canary.yaml**:
+```yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -310,33 +331,11 @@ spec:
     matchLabels:
       app: webapp
       track: canary
-  template:
-    metadata:
-      labels:
-        app: webapp
-        track: canary
-        version: "v1.0.0"  # This will be updated by the pipeline
-    spec:
-      containers:
-      - name: webapp
-        image: your-registry/webapp:canary  # Will be replaced
-        ports:
-        - containerPort: 8080
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8080
-          initialDelaySeconds: 5
-          periodSeconds: 5
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: 8080
-          initialDelaySeconds: 5
-          periodSeconds: 5
-```
+      ...
+```      
 
 **service.yaml**:
+
 ```yaml
 apiVersion: v1
 kind: Service
@@ -349,7 +348,9 @@ spec:
   - port: 80
     targetPort: 8080
   type: ClusterIP
----
+```
+**ingress.yaml**:
+```yaml
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -533,75 +534,7 @@ jobs:
         echo "Deployment completed successfully for commit ${{ github.sha }}"
 ```
 
-### 3. Python Script for Advanced Canary Analysis
 
-For more sophisticated canary analysis, create a Python script to automate validation:
-
-**canary-validation.py**:
-```python
-#!/usr/bin/env python3
-
-import requests
-import json
-import os
-import time
-import sys
-from kubernetes import client, config
-
-def validate_canary():
-    # Load Kubernetes config
-    try:
-        config.load_incluster_config()  # When running inside cluster
-    except:
-        config.load_kube_config()  # When running locally
-    
-    v1 = client.CoreV1Api()
-    
-    # Get canary pods
-    canary_pods = v1.list_namespaced_pod(
-        namespace=os.getenv('K8S_NAMESPACE', 'default'),
-        label_selector="track=canary"
-    )
-    
-    if not canary_pods.items:
-        print("No canary pods found!")
-        return False
-    
-    # Test each canary pod
-    success_count = 0
-    for pod in canary_pods.items:
-        pod_name = pod.metadata.name
-        print(f"Testing canary pod: {pod_name}")
-        
-        try:
-            # Execute health check inside the pod
-            resp = requests.get(f"http://{pod.status.pod_ip}:8080/health", timeout=5)
-            if resp.status_code == 200:
-                print(f"✓ Pod {pod_name} health check passed")
-                success_count += 1
-            else:
-                print(f"✗ Pod {pod_name} health check failed: HTTP {resp.status_code}")
-        except Exception as e:
-            print(f"✗ Pod {pod_name} health check error: {str(e)}")
-    
-    # Determine if canary is successful
-    success_rate = success_count / len(canary_pods.items) if canary_pods.items else 0
-    print(f"Canary success rate: {success_rate:.2%}")
-    
-    return success_rate >= 0.8  # Require 80% success rate
-
-if __name__ == "__main__":
-    # Wait a bit for pods to stabilize
-    time.sleep(30)
-    
-    # Run validation
-    if validate_canary():
-        print("Canary validation passed!")
-        sys.exit(0)
-    else:
-        print("Canary validation failed!")
-        sys.exit(1)
-```
 
 ### 4. Setup Instructions
 
@@ -638,17 +571,18 @@ of progressive delivery strategies - all key requirements for the DevOps Lead po
 
 # Improved Dockerfile and Configuration for Production
 
-I'll help you improve your Dockerfile for production use and set up environment variables properly. Here's the optimized solution:
+Dockerfile for production use needs to set up environment variables properly. 
+Here's a better solution:
 
-## Improved Dockerfile
+## Dockerfile
 
 ```dockerfile
 # Use an official Python runtime as a base image with a specific version for reproducibility
 FROM python:3.7-slim
 
 # Set environment variables for Python
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 ENV FLASK_DEBUG=0
 ENV FLASK_ENV=production
 
@@ -757,7 +691,6 @@ fi
 # Create or update the ConfigMap
 kubectl create configmap flask-demo-config \
   --namespace=demo-services \
-  --from-literal=flights_api_key=${FLIGHTS_API_KEY} \
   --from-literal=registry_url=${REGISTRY_URL} \
   --from-literal=api_url=${API_URL} \
   -o yaml --dry-run=client | kubectl apply -f -
@@ -778,7 +711,7 @@ README.md
 .gitignore
 ```
 
-## Key Improvements
+## Key features
 
 1. **Security**:
     - Using a non-root user
@@ -804,6 +737,8 @@ To use this setup:
 3. Build your Docker image: `docker build -t your-image-name .`
 4. Deploy using your updated deployment.yaml
 
+
+**Best practice**
 This approach follows Kubernetes best practices by keeping configuration separate from 
 application code and allowing you to change configuration without rebuilding your container image.
 
@@ -820,8 +755,8 @@ Describe how you would implement a continuous deployment pipeline for a web appl
    Test Stage: Run automated unit, integration, and end-to-end tests to ensure code quality and functionality.
 3. Artifact Repository:
    Store your deployable artifacts in a centralized repository (e.g., Nexus, Artifactory, Docker Hub for Docker images). This ensures versioning and easy retrieval during deployment.
-4. Deployment Environment (Linux Servers):
-   Prepare your Linux servers (e.g., EC2 instances, VMs) where the application will be deployed.
+4. Deployment Environment (Linux Servers, Kubernetes, Lambda functions, Elasticbeanstalk)
+   Prepare your servers (e.g., EC2 instances, VMs) where the application will be deployed.
    Ensure necessary software and dependencies (e.g., web server like Nginx/Apache, application server like Tomcat/JBoss, database) are installed and configured.
 5. Deployment Tool:
    Utilize a deployment tool (e.g., Ansible, Chef, Puppet, AWS CodeDeploy, Capistrano) to automate the deployment process to your Linux servers.
@@ -833,20 +768,21 @@ Describe how you would implement a continuous deployment pipeline for a web appl
    Starting the new application instance.
    Performing post-deployment health checks.
 6. Pipeline Orchestration:
-   Integrate the CI and CD stages into a cohesive pipeline using your CI server or a dedicated CD tool (e.g., Spinnaker).
-   Define stages like "Build," "Test," "Deploy to Staging," "Deploy to Production."
+   Integrate the CI and CD stages into a cohesive pipeline using your CI server or a dedicated CD tool like AWS Codebuild or Github Actions
+   Define stages like "Build," "Test," "Deploy to Staging" "Deploy to Production."
    Implement approval gates for critical stages (e.g., before deploying to production).
+
 7. Monitoring and Rollback:
-   Implement monitoring tools (e.g., Prometheus, Grafana, ELK stack) to track application performance and health after deployment.
-   Establish a clear rollback strategy in case of deployment failures or issues in production. This might involve deploying a previous stable version of the application.
-   Example using Jenkins and Ansible:
+   Implement monitoring tools (e.g., Prometheus, Grafana, Opensearch) to track application performance and health after deployment.
+   Establish a clear rollback strategy in case of deployment failures or issues in production.
    Git: Code hosted on GitHub.
-   Jenkins:
-   A Jenkins pipeline is triggered on every git push.
-   Build Stage: Maven build for a Java web application, producing a WAR file.
-   Test Stage: Run JUnit tests.
-   Artifact Archiving: Archive the WAR file as a build artifact.
-   Deploy to Staging Stage: Trigger an Ansible playbook to deploy the WAR to a staging Linux server.
-   Deploy to Production Stage: (Manual approval) Trigger another Ansible playbook to deploy the WAR to production Linux servers.
-   Ansible: Playbooks define the steps to copy the WAR file, stop/start Tomcat, and configure the application on the target Linux servers.
-   Monitoring: Tools like Nagios or Zabbix monitor the health of the deployed application.
+   
+
+8. Github Actions:
+   Actions pipeline is triggered on every git push.
+   Build: Build the application and produce artifacts (WAR file, Docker Image)
+   Test: Run Unit tests and integrations tests.
+   Artifact Archiving: Archive build artifacts
+   Deploy to Staging: Deploy after testing and use Kubernetes rollout approach.
+   Deploy to Production: (Manual approval).
+   Monitoring: Zabbix monitor the health of the deployed application, Openserach and Fluent-bit for logging.
