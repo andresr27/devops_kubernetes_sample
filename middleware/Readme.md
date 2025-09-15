@@ -28,23 +28,21 @@ middleware/
 
 ## Monitoring Stack Deployment Guide
 
-### 1. Create Monitoring Namespace
+## 1. Summary
 ```bash
-kubectl create namespace monitoring
-```
 
-### 2. Deploy Prometheus Stack
-```bash
+# 1. Create Monitoring Namespace
+kubectl create namespace monitoring
+
+# 2. Deploy Prometheus Stack
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo update
 helm install prometheus prometheus-community/kube-prometheus-stack \
   --namespace monitoring \
   --values values-zabbix.yaml \
   --wait --timeout 300s
-```
 
-### 3. Deploy Zabbix
-```bash
+# 3. Deploy Zabbix
 helm repo add cetic https://cetic.github.io/helm-charts
 helm repo update
 
@@ -52,14 +50,11 @@ helm install zabbix cetic/zabbix \
   --namespace monitoring \
   --values values-zabbix.yaml \
   --wait --timeout 300s
-```
 
-### 4. Deploy Fluent Bit
-```bash
+# 4. Deploy Fluent Bit
 helm repo add fluent https://fluent.github.io/helm-charts
 helm repo update
 
-# Create OpenSearch authentication secret
 kubectl create secret generic opensearch-auth --namespace monitoring \
   --from-literal=username=admin \
   --from-literal=password=your-secure-password-here
@@ -68,15 +63,13 @@ helm install fluent-bit fluent/fluent-bit \
   --namespace monitoring \
   --values values-fluentbit.yaml \
   --wait --timeout 300s
-```
 
-### 5. Apply Ingress Resources
-```bash
+# 5. Apply Ingress Resources
 kubectl apply -f ingress-prometheus.yaml -n monitoring
 kubectl apply -f ingress-zabbix.yaml -n monitoring
 ```
 
-## Production Deployment Considerations
+## 2. Production Deployment Considerations
 
 ### Critical Parameters for Production
 
@@ -94,15 +87,18 @@ kubectl apply -f ingress-zabbix.yaml -n monitoring
    ```
 
 2. **Resource Limits**:
+
+Remember these are microservices, it might be hard to allocate a few 2Gi request on a 8Gi nodes,
+for CPU we can remove the limit as it is already compressible.
    ```yaml
    # Increase resource limits for production
    resources:
      requests:
-       memory: 2Gi  # Increase from 512Mi
-       cpu: 1000m   # Increase from 250m
+       memory: 512Mi  # Increase from 512Mi
+       cpu: 250m   # Increase from 250m
      limits:
-       memory: 4Gi  # Increase from 2Gi
-       cpu: 2000m   # Increase from 1
+       memory: 1Gi  # Increase from 1Gi
+       #cpu: 500m   # Increase from 500m
    ```
 
 3. **High Availability**:
@@ -110,7 +106,7 @@ kubectl apply -f ingress-zabbix.yaml -n monitoring
    # Enable high availability in production
    highAvailability:
      enabled: true
-     replicaCount: 3
+     replicaCount: 2
    ```
 
 4. **Security Hardening**:
@@ -135,9 +131,10 @@ kubectl apply -f ingress-zabbix.yaml -n monitoring
        GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET: "$CLIENT_SECRET"
    ```
 
-## Service Interconnection Configuration
 
-### 1. Prometheus to Scrape Zabbix Metrics
+## 3. Service Interconnection Configuration
+
+#### 1. Prometheus to Scrape Zabbix Metrics
 
 Add to your `values-prometheus.yaml`:
 ```yaml
@@ -149,7 +146,7 @@ additionalScrapeConfigs:
     scrape_interval: 30s
 ```
 
-### 2. Zabbix to Monitor Prometheus Components
+#### 2. Zabbix to Monitor Prometheus Components
 
 Create a Zabbix template configuration:
 ```yaml
@@ -174,7 +171,7 @@ data:
     </zabbix_export>
 ```
 
-### 3. Fluent Bit to Enrich Logs with Prometheus Metrics
+#### 3. Fluent Bit to Enrich Logs with Prometheus Metrics
 
 Enhance your Fluent Bit configuration:
 ```yaml
@@ -208,9 +205,9 @@ curl -s -u admin:password \
   "http://opensearch-cluster-master.monitoring.svc.cluster.local:9200/fluentbit-default/_search?q=app:test-monitoring-app" | jq '.hits.total.value'
 ```
 
-## Maintenance and Updates
+## 4. Maintenance and Updates
 
-### Upgrade Procedures
+#### Upgrade Procedures
 ```bash
 # Upgrade Prometheus stack
 helm upgrade prometheus prometheus-community/kube-prometheus-stack \
@@ -228,7 +225,7 @@ helm upgrade fluent-bit fluent/fluent-bit \
   --values values-fluentbit.yaml
 ```
 
-### Backup Procedures
+#### Backup Procedures
 ```bash
 # Backup Prometheus data (if using persistent storage)
 velero backup create monitoring-backup --include-namespaces monitoring
@@ -238,17 +235,7 @@ kubectl exec -n monitoring deployment/zabbix-server -- \
   zabbix-server -c /etc/zabbix/zabbix_server.conf -R config_cache_reload
 ```
 
-## Support
-
-For issues with the monitoring stack:
-1. Check pod logs: `kubectl logs -n monitoring <pod-name>`
-2. Verify resource allocation: `kubectl describe nodes`
-3. Check network connectivity between components `nc localhost 5601 -v`
-4. Review Kubernetes events: `kubectl get events -n monitoring`
-
-Contact the DevOps team for assistance with configuration changes or persistent issues.
-
-# Configuring Zabbix with Prometheus on Minikube
+## 5. Configuring Zabbix with Prometheus on Minikube
 
 We will deploy solution that works with `.local` domains pointing to your Minikube cluster using Helm.
 
@@ -257,7 +244,7 @@ We will deploy solution that works with `.local` domains pointing to your Miniku
 We want to update to latest version of [Prometheus Charts]()
 
 
-### 1. Updated values-prometheus.yaml
+#### 1. Updated values-prometheus.yaml
 
 ```yaml
 # values-prometheus.yaml
@@ -301,7 +288,7 @@ We want to update to latest image of [Zabbix Server](https://hub.docker.com/r/za
 but I leave it as an update opportunity once it is running with 6.4
 
 
-### 1. Updated values-zabbix.yaml
+#### 1. Updated values-zabbix.yaml
 
 ```yaml
 # values-zabbix.yaml
@@ -364,7 +351,7 @@ prometheus:
   enabled: true
   url: "http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090"
 ```
-### 2. Zabbix Prometheus Template ConfigMap
+#### 2. Zabbix Prometheus Template ConfigMap
 
 ```yaml
 # zabbix-prometheus-template.yaml
@@ -385,21 +372,21 @@ data:
     </zabbix_export>
 ```
 
-## Installation Commands
+### Installation Commands
 
-### 1. Add Helm Repositories
+#### 1. Add Helm Repositories
 ```bash
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo add cetic https://cetic.github.io/helm-charts
 helm repo update
 ```
 
-### 2. Create Monitoring Namespace
+#### 2. Create Monitoring Namespace
 ```bash
 kubectl create namespace monitoring
 ```
 
-### 3. Install Prometheus Stack
+#### 3. Install Prometheus Stack
 ```bash
 helm install prometheus prometheus-community/kube-prometheus-stack \
   --namespace monitoring \
@@ -408,7 +395,7 @@ helm install prometheus prometheus-community/kube-prometheus-stack \
 ```
 
 
-### 4. Install Zabbix
+#### 4. Install Zabbix
 ```bash
 helm install zabbix cetic/zabbix \
   --namespace monitoring \
@@ -416,14 +403,14 @@ helm install zabbix cetic/zabbix \
   --wait --timeout 300s
 ```
 
-### 5. Apply the Prometheus Template
+#### 5. Apply the Prometheus Template
 ```bash
 kubectl apply -f zabbix-prometheus-template.yaml -n monitoring
 ```
 
-## Configure Local DNS for Minikube 
+### Configure Local DNS for Minikube 
 
-### Update /etc/hosts File
+#### Update /etc/hosts File
 Add these entries to your `/etc/hosts` file:
 
 ```
@@ -438,9 +425,9 @@ echo "$MINIKUBE_IP prometheus.minikube.local" | sudo tee -a /etc/hosts
 echo "$MINIKUBE_IP zabbix.minikube.local" | sudo tee -a /etc/hosts
 ```
 
-## Manual Validation Steps
+### Manual Validation Steps
 
-### 1. Verify Prometheus is Working
+#### 1. Verify Prometheus is Working
 ```bash
 # Check Prometheus targets
 curl http://prometheus.minikube.local/api/v1/targets | jq '.data.activeTargets[].health'
@@ -469,14 +456,14 @@ PROMETHEUS_POD=$(kubectl get pods -n monitoring -l app.kubernetes.io/name=promet
 kubectl exec -n monitoring $PROMETHEUS_POD -- curl -s http://localhost:9090/api/v1/status | jq '.data.ready'
 ```
 
-### 2. Verify Zabbix is Working
+#### 2. Verify Zabbix is Working
 ```bash
 # Check Zabbix API
 curl -s -X POST -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","method":"user.login","params":{"user":"Admin","password":"zabbix"},"id":1}' \
   http://zabbix.minikube.local/api_jsonrpc.php | jq '.result'
 ```
-### Test connectivity to Zabbix
+#### Test connectivity to Zabbix
 ```bash
 echo "Testing Zabbix connectivity..."
 ZABBIX_POD=$(kubectl get pods -n monitoring -l app=zabbix-web -o jsonpath="{.items[0].metadata.name}")
@@ -504,7 +491,7 @@ curl -s -X POST -H "Content-Type: application/json" \
   http://zabbix-web.monitoring.svc.cluster.local/api_jsonrpc.php
 ```
 
-### 3. Verify Zabbix Can Access Prometheus
+#### 3. Verify Zabbix Can Access Prometheus
 ```bash
 # Test from within Zabbix server pod
 ZABBIX_SERVER_POD=$(kubectl get pods -n monitoring -l app=zabbix-server -o jsonpath="{.items[0].metadata.name}")
@@ -512,13 +499,13 @@ kubectl exec -n monitoring $ZABBIX_SERVER_POD -- \
   curl -s http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090/api/v1/status | jq '.data.ready'
 ```
 
-### 4. Verify Template is Loaded
+#### 4. Verify Template is Loaded
 ```bash
 # Check if template is mounted in Zabbix server
 kubectl exec -n monitoring $ZABBIX_SERVER_POD -- \
   ls -la /etc/zabbix/templates/
 ```
-### 5. Fluent Bit Validation
+#### 5. Fluent Bit Validation
 
 **Check Fluent Bit Status**:
 ```bash
@@ -569,7 +556,7 @@ kubectl get svc -n monitoring
 echo "3. Checking ingress status..."
 kubectl get ingress -n monitoring
 ```
-## Troubleshooting Common Issues
+## 5. Troubleshooting Common Issues
 
 1. **Prometheus Targets Down**:
     - Check service discovery annotations
@@ -590,7 +577,17 @@ kubectl get ingress -n monitoring
     - Monitor resource usage: `kubectl top pods -n monitoring`
     - Adjust resource limits in values files if needed
 
-## Troubleshooting Other
+### Support
+
+For issues with the monitoring stack:
+1. Check pod logs: `kubectl logs -n monitoring <pod-name>`
+2. Verify resource allocation: `kubectl describe nodes`
+3. Check network connectivity between components `nc localhost 5601 -v`
+4. Review Kubernetes events: `kubectl get events -n monitoring`
+
+Contact the DevOps team for assistance with configuration changes or persistent issues.
+
+### Troubleshooting Other
 
 If you encounter issues:
 
