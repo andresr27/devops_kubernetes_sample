@@ -273,50 +273,8 @@ curl -s -u admin:password \
 
 ### 4. End-to-End Validation
 
-**Create Test Application**:
-```yaml
-# test-app.yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: test-monitoring-app
-  namespace: default
-  annotations:
-    prometheus.io/scrape: "true"
-    prometheus.io/port: "8080"
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: test-monitoring-app
-  template:
-    metadata:
-      labels:
-        app: test-monitoring-app
-      annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/port: "8080"
-    spec:
-      containers:
-      - name: test-app
-        image: busybox #This is so cool!
-        command: ["/bin/sh"]
-        args: ["-c", "while true; do echo '{\"level\":\"INFO\",\"message\":\"Test log message\"}'; sleep 30; done"]
-        ports:
-        - containerPort: 8080
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: test-monitoring-app
-  namespace: default
-spec:
-  selector:
-    app: test-monitoring-app
-  ports:
-  - port: 8080
-    targetPort: 8080
-```
+**Deploy demo-services like**:
+[flask-demo-service](https://github.com/andresr27/flask-demo-service)
 
 **Deploy and Verify**:
 ```bash
@@ -386,17 +344,63 @@ kubectl exec -n monitoring deployment/zabbix-server -- \
 For issues with the monitoring stack:
 1. Check pod logs: `kubectl logs -n monitoring <pod-name>`
 2. Verify resource allocation: `kubectl describe nodes`
-3. Check network connectivity between components
+3. Check network connectivity between components `nc localhost 5601 -v`
 4. Review Kubernetes events: `kubectl get events -n monitoring`
 
-Contact the platform team for assistance with configuration changes or persistent issues.
-
+Contact the DevOps team for assistance with configuration changes or persistent issues.
 
 # Configuring Zabbix with Prometheus on Minikube
 
-I'll help you fix the deployment names and focus on Method 1 with local Minikube configuration. Let's create a clean solution that works with `.local` domains pointing to your Minikube cluster.
+We will deploy solution that works with `.local` domains pointing to your Minikube cluster using Helm.
 
-## Fixed Configuration Files
+### Prometheus
+
+We want to update to latest version of [Prometheus Charts]()
+
+
+### 1. Updated values-prometheus.yaml
+
+```yaml
+# values-prometheus.yaml
+prometheus:
+  prometheusSpec:
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: standard
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 20Gi
+    resources:
+      requests:
+        memory: 512Mi
+        cpu: 250m
+      limits:
+        memory: 2Gi
+        cpu: 1
+
+prometheus-node-exporter:
+  enabled: true
+
+kube-state-metrics:
+  enabled: true
+
+# Ingress configuration for Prometheus
+ingress:
+  enabled: true
+  hosts:
+    - prometheus.minikube.local
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+```
+
+
+### Zabbix
+
+We want to update to latest image of [Zabbix Server](https://hub.docker.com/r/zabbix/zabbix-server-pgsql) wiht PGSQL database.
+but I leave it as an update opportunity once it is running with 6.4
+
 
 ### 1. Updated values-zabbix.yaml
 
@@ -437,17 +441,7 @@ zabbix-web:
       - zabbix.minikube.local
     annotations:
       nginx.ingress.kubernetes.io/rewrite-target: /
-
-zabbix-agent:
-  enabled: true
-  resources:
-    requests:
-      memory: 64Mi
-      cpu: 50m
-    limits:
-      memory: 128Mi
-      cpu: 100m
-
+      
 postgresql:
   enabled: true
   auth:
@@ -471,45 +465,7 @@ prometheus:
   enabled: true
   url: "http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090"
 ```
-
-### 2. Updated values-prometheus.yaml
-
-```yaml
-# values-prometheus.yaml
-prometheus:
-  prometheusSpec:
-    storageSpec:
-      volumeClaimTemplate:
-        spec:
-          storageClassName: standard
-          accessModes: ["ReadWriteOnce"]
-          resources:
-            requests:
-              storage: 20Gi
-    resources:
-      requests:
-        memory: 512Mi
-        cpu: 250m
-      limits:
-        memory: 2Gi
-        cpu: 1
-
-prometheus-node-exporter:
-  enabled: true
-
-kube-state-metrics:
-  enabled: true
-
-# Ingress configuration for Prometheus
-ingress:
-  enabled: true
-  hosts:
-    - prometheus.minikube.local
-  annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
-```
-
-### 3. Zabbix Prometheus Template ConfigMap
+### 2. Zabbix Prometheus Template ConfigMap
 
 ```yaml
 # zabbix-prometheus-template.yaml
@@ -565,7 +521,7 @@ helm install zabbix cetic/zabbix \
 kubectl apply -f zabbix-prometheus-template.yaml -n monitoring
 ```
 
-## Configure Local DNS for Minikube
+## Configure Local DNS for Minikube 
 
 ### Update /etc/hosts File
 Add these entries to your `/etc/hosts` file:
@@ -582,60 +538,6 @@ echo "$MINIKUBE_IP prometheus.minikube.local" | sudo tee -a /etc/hosts
 echo "$MINIKUBE_IP zabbix.minikube.local" | sudo tee -a /etc/hosts
 ```
 
-## Validation Script
-
-Create a validation script `validate-monitoring.sh`:
-
-```bash
-#!/bin/bash
-
-echo "=== Monitoring Stack Validation ==="
-
-# Check if services are running
-echo "1. Checking pod status..."
-kubectl get pods -n monitoring
-
-echo "2. Checking service status..."
-kubectl get svc -n monitoring
-
-echo "3. Checking ingress status..."
-kubectl get ingress -n monitoring
-
-# Test connectivity to Prometheus
-echo "4. Testing Prometheus connectivity..."
-PROMETHEUS_POD=$(kubectl get pods -n monitoring -l app.kubernetes.io/name=prometheus -o jsonpath="{.items[0].metadata.name}")
-kubectl exec -n monitoring $PROMETHEUS_POD -- curl -s http://localhost:9090/api/v1/status | jq '.data.ready'
-
-# Test connectivity to Zabbix
-echo "5. Testing Zabbix connectivity..."
-ZABBIX_POD=$(kubectl get pods -n monitoring -l app=zabbix-web -o jsonpath="{.items[0].metadata.name}")
-kubectl exec -n monitoring $ZABBIX_POD -- curl -s http://localhost:80/ > /dev/null && echo "Zabbix web is accessible"
-
-# Test local DNS resolution
-echo "6. Testing local DNS resolution..."
-for host in prometheus.minikube.local grafana.minikube.local alertmanager.minikube.local zabbix.minikube.local; do
-  if ping -c 1 $host &> /dev/null; then
-    echo "$host resolves to $(dig +short $host)"
-  else
-    echo "Warning: $host does not resolve correctly"
-  fi
-done
-
-echo "7. Testing web access..."
-echo "Prometheus: http://prometheus.minikube.local"
-echo "Grafana: http://grafana.minikube.local (admin/prom-operator)"
-echo "Alertmanager: http://alertmanager.minikube.local"
-echo "Zabbix: http://zabbix.minikube.local (Admin/zabbix)"
-
-echo "=== Validation Complete ==="
-```
-
-Make it executable and run it:
-```bash
-chmod +x validate-monitoring.sh
-./validate-monitoring.sh
-```
-
 ## Manual Validation Steps
 
 ### 1. Verify Prometheus is Working
@@ -646,6 +548,12 @@ curl http://prometheus.minikube.local/api/v1/targets | jq '.data.activeTargets[]
 # Check if Prometheus is scraping itself
 curl "http://prometheus.minikube.local/api/v1/query?query=up{job=\"prometheus\"}"
 ```
+### Test connectivity to Prometheus
+```bash
+echo "Testing Prometheus connectivity..."
+PROMETHEUS_POD=$(kubectl get pods -n monitoring -l app.kubernetes.io/name=prometheus -o jsonpath="{.items[0].metadata.name}")
+kubectl exec -n monitoring $PROMETHEUS_POD -- curl -s http://localhost:9090/api/v1/status | jq '.data.ready'
+```
 
 ### 2. Verify Zabbix is Working
 ```bash
@@ -654,6 +562,13 @@ curl -s -X POST -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","method":"user.login","params":{"user":"Admin","password":"zabbix"},"id":1}' \
   http://zabbix.minikube.local/api_jsonrpc.php | jq '.result'
 ```
+### Test connectivity to Zabbix
+```bash
+echo "Testing Zabbix connectivity..."
+ZABBIX_POD=$(kubectl get pods -n monitoring -l app=zabbix-web -o jsonpath="{.items[0].metadata.name}")
+kubectl exec -n monitoring $ZABBIX_POD -- curl -s http://localhost:80/ > /dev/null && echo "Zabbix web is accessible"
+```
+
 
 ### 3. Verify Zabbix Can Access Prometheus
 ```bash
@@ -669,6 +584,23 @@ kubectl exec -n monitoring $ZABBIX_SERVER_POD -- \
 kubectl exec -n monitoring $ZABBIX_SERVER_POD -- \
   ls -la /etc/zabbix/templates/
 ```
+## Validation Script (To Do)
+
+We could create a validation script `validate-monitoring.sh`.
+
+```bash
+echo "=== Monitoring Stack Validation ==="
+
+# Check if services are running
+echo "1. Checking pod status..."
+kubectl get pods -n monitoring
+
+echo "2. Checking service status..."
+kubectl get svc -n monitoring
+
+echo "3. Checking ingress status..."
+kubectl get ingress -n monitoring
+```
 
 ## Troubleshooting
 
@@ -677,6 +609,7 @@ If you encounter issues:
 1. **Check Minikube IP has not changed**:
    ```bash
    minikube ip
+   dig prometheus.minikube.local
    # Update /etc/hosts if needed
    ```
 

@@ -35,15 +35,15 @@ zabbix-web:
     annotations:
       nginx.ingress.kubernetes.io/rewrite-target: /
 
-zabbix-agent:
-  enabled: false
-  resources:
-    requests:
-      memory: 64Mi
-      cpu: 50m
-    limits:
-      memory: 128Mi
-      cpu: 100m
+#zabbix-agent:
+#  enabled: false
+#  resources:
+#    requests:
+#      memory: 64Mi
+#      cpu: 50m
+#    limits:
+#      memory: 128Mi
+#      cpu: 100m
 
 postgresql:
   enabled: true
@@ -66,4 +66,4 @@ postgresql:
 # Prometheus integration configuration
 prometheus:
   enabled: true
-  url: "http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090"
+  url: "http://prometheus.local:9090"
