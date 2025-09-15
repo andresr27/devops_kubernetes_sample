@@ -195,86 +195,6 @@ filters: |
     Label         namespace $kubernetes['namespace_name']
 ```
 
-## Validation Procedures
-
-### 1. Prometheus Stack Validation
-
-**Check Pod Status**:
-```bash
-kubectl get pods -n monitoring -l "app.kubernetes.io/instance=prometheus"
-```
-
-**Verify Prometheus Targets**:
-```bash
-# Port forward to Prometheus
-kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 9090:9090
-
-# Check targets (should show "UP" status for all components)
-curl -s http://localhost:9090/api/v1/targets | jq '.data.activeTargets[].health'
-```
-
-**Validate Alertmanager**:
-```bash
-# Check Alertmanager status
-kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-alertmanager 9093:9093
-curl http://localhost:9093/api/v1/status
-```
-
-### 2. Zabbix Validation
-
-**Check Zabbix Components**:
-```bash
-kubectl get pods -n monitoring -l "app=zabbix"
-
-# Verify Zabbix server connectivity
-kubectl exec -n monitoring deployment/zabbix-web -- curl -s http://zabbix-server:10051/status
-```
-
-**Test Zabbix API**:
-```bash
-# Get Zabbix API token
-ZABBIX_TOKEN=$(curl -s -X POST -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","method":"user.login","params":{"user":"Admin","password":"zabbix"},"id":1}' \
-  http://zabbix-web.monitoring.svc.cluster.local/api_jsonrpc.php | jq -r '.result')
-
-# Verify API functionality
-curl -s -X POST -H "Content-Type: application/json" \
-  -d "{\"jsonrpc\":\"2.0\",\"method\":\"host.get\",\"params\":{\"output\":[\"hostid\",\"host\"]},\"id\":1,\"auth\":\"$ZABBIX_TOKEN\"}" \
-  http://zabbix-web.monitoring.svc.cluster.local/api_jsonrpc.php
-```
-
-### 3. Fluent Bit Validation
-
-**Check Fluent Bit Status**:
-```bash
-kubectl get pods -n monitoring -l "app.kubernetes.io/instance=fluent-bit"
-
-# View Fluent Bit logs
-kubectl logs -n monitoring -l "app.kubernetes.io/instance=fluent-bit" --tail=50
-```
-
-**Verify OpenSearch Connection**:
-```bash
-# Check if Fluent Bit can reach OpenSearch
-kubectl exec -n monitoring deployment/fluent-bit -- curl -s -u admin:password \
-  http://opensearch-cluster-master.monitoring.svc.cluster.local:9200/_cluster/health
-```
-
-**Test Log Processing**:
-```bash
-# Send a test log message
-kubectl exec -n monitoring deployment/fluent-bit -- sh -c \
-  'echo "{\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"level\":\"INFO\",\"message\":\"Test message from validation\"}" >> /var/log/containers/test.log'
-
-# Check if it appears in OpenSearch (after a few seconds)
-curl -s -u admin:password \
-  "http://opensearch-cluster-master.monitoring.svc.cluster.local:9200/fluentbit-*/_search?q=message:test" | jq '.hits.hits[]._source'
-```
-
-### 4. End-to-End Validation
-
-**Deploy demo-services like**:
-[flask-demo-service](https://github.com/andresr27/flask-demo-service)
 
 **Deploy and Verify**:
 ```bash
@@ -287,27 +207,6 @@ curl -s http://localhost:9090/api/v1/targets | jq '.data.activeTargets[] | selec
 curl -s -u admin:password \
   "http://opensearch-cluster-master.monitoring.svc.cluster.local:9200/fluentbit-default/_search?q=app:test-monitoring-app" | jq '.hits.total.value'
 ```
-
-## Troubleshooting Common Issues
-
-1. **Prometheus Targets Down**:
-    - Check service discovery annotations
-    - Verify network policies allow scraping
-    - Check if metrics endpoints are accessible
-
-2. **Fluent Bit Not Shipping Logs**:
-    - Verify OpenSearch connection details
-    - Check authentication credentials
-    - Review Fluent Bit configuration maps
-
-3. **Zabbix Not Collecting Data**:
-    - Verify agent communication
-    - Check firewall rules
-    - Review Zabbix server logs
-
-4. **Resource Constraints**:
-    - Monitor resource usage: `kubectl top pods -n monitoring`
-    - Adjust resource limits in values files if needed
 
 ## Maintenance and Updates
 
@@ -508,6 +407,7 @@ helm install prometheus prometheus-community/kube-prometheus-stack \
   --wait --timeout 300s
 ```
 
+
 ### 4. Install Zabbix
 ```bash
 helm install zabbix cetic/zabbix \
@@ -548,7 +448,21 @@ curl http://prometheus.minikube.local/api/v1/targets | jq '.data.activeTargets[]
 # Check if Prometheus is scraping itself
 curl "http://prometheus.minikube.local/api/v1/query?query=up{job=\"prometheus\"}"
 ```
-### Test connectivity to Prometheus
+**Check Pod Status**:
+```bash
+kubectl get pods -n monitoring -l "app.kubernetes.io/instance=prometheus"
+```
+
+**Verify Prometheus Targets**:
+```bash
+# Port forward to Prometheus
+kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 9090:9090
+
+# Check targets (should show "UP" status for all components)
+curl -s http://localhost:9090/api/v1/targets | jq '.data.activeTargets[].health'
+```
+
+** Test connectivity to Prometheus ***
 ```bash
 echo "Testing Prometheus connectivity..."
 PROMETHEUS_POD=$(kubectl get pods -n monitoring -l app.kubernetes.io/name=prometheus -o jsonpath="{.items[0].metadata.name}")
@@ -569,6 +483,26 @@ ZABBIX_POD=$(kubectl get pods -n monitoring -l app=zabbix-web -o jsonpath="{.ite
 kubectl exec -n monitoring $ZABBIX_POD -- curl -s http://localhost:80/ > /dev/null && echo "Zabbix web is accessible"
 ```
 
+**Check Zabbix Components**:
+```bash
+kubectl get pods -n monitoring -l "app=zabbix"
+
+# Verify Zabbix server connectivity
+kubectl exec -n monitoring deployment/zabbix-web -- curl -s http://zabbix-server:10051/status
+```
+
+**Test Zabbix API**:
+```bash
+# Get Zabbix API token
+ZABBIX_TOKEN=$(curl -s -X POST -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"user.login","params":{"user":"Admin","password":"zabbix"},"id":1}' \
+  http://zabbix-web.monitoring.svc.cluster.local/api_jsonrpc.php | jq -r '.result')
+
+# Verify API functionality
+curl -s -X POST -H "Content-Type: application/json" \
+  -d "{\"jsonrpc\":\"2.0\",\"method\":\"host.get\",\"params\":{\"output\":[\"hostid\",\"host\"]},\"id\":1,\"auth\":\"$ZABBIX_TOKEN\"}" \
+  http://zabbix-web.monitoring.svc.cluster.local/api_jsonrpc.php
+```
 
 ### 3. Verify Zabbix Can Access Prometheus
 ```bash
@@ -584,6 +518,40 @@ kubectl exec -n monitoring $ZABBIX_SERVER_POD -- \
 kubectl exec -n monitoring $ZABBIX_SERVER_POD -- \
   ls -la /etc/zabbix/templates/
 ```
+### 5. Fluent Bit Validation
+
+**Check Fluent Bit Status**:
+```bash
+kubectl get pods -n monitoring -l "app.kubernetes.io/instance=fluent-bit"
+
+# View Fluent Bit logs
+kubectl logs -n monitoring -l "app.kubernetes.io/instance=fluent-bit" --tail=50
+```
+
+**Verify OpenSearch Connection**:
+```bash
+# Check if Fluent Bit can reach OpenSearch
+kubectl exec -n monitoring deployment/fluent-bit -- curl -s -u admin:password \
+  http://opensearch-cluster-master.monitoring.svc.cluster.local:9200/_cluster/health
+```
+
+**Test Log Processing**:
+```bash
+# Send a test log message
+kubectl exec -n monitoring deployment/fluent-bit -- sh -c \
+  'echo "{\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"level\":\"INFO\",\"message\":\"Test message from validation\"}" >> /var/log/containers/test.log'
+
+# Check if it appears in OpenSearch (after a few seconds)
+curl -s -u admin:password \
+  "http://opensearch-cluster-master.monitoring.svc.cluster.local:9200/fluentbit-*/_search?q=message:test" | jq '.hits.hits[]._source'
+```
+
+### 6. End-to-End Validation
+
+**Deploy demo-services like**:
+[flask-demo-service](https://github.com/andresr27/flask-demo-service)
+
+
 ## Validation Script (To Do)
 
 We could create a validation script `validate-monitoring.sh`.
@@ -601,8 +569,28 @@ kubectl get svc -n monitoring
 echo "3. Checking ingress status..."
 kubectl get ingress -n monitoring
 ```
+## Troubleshooting Common Issues
 
-## Troubleshooting
+1. **Prometheus Targets Down**:
+    - Check service discovery annotations
+    - Verify network policies allow scraping
+    - Check if metrics endpoints are accessible
+
+2. **Fluent Bit Not Shipping Logs**:
+    - Verify OpenSearch connection details
+    - Check authentication credentials
+    - Review Fluent Bit configuration maps
+
+3. **Zabbix Not Collecting Data**:
+    - Verify agent communication
+    - Check firewall rules
+    - Review Zabbix server logs
+
+4. **Resource Constraints**:
+    - Monitor resource usage: `kubectl top pods -n monitoring`
+    - Adjust resource limits in values files if needed
+
+## Troubleshooting Other
 
 If you encounter issues:
 
